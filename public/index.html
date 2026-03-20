@@ -32,6 +32,8 @@
       --text: #b3b1ad;
       --dim: #4a5568;
       --header-h: 48px;
+      --toolbar-h: 44px;
+      --kb-actual-h: 0px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -341,6 +343,191 @@
       transform: translateX(18px);
       background: var(--green);
     }
+
+    /* ── Custom Keyboard Panel ── */
+    #kb-keyboard {
+      flex-shrink: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    #kb-keyboard.open { max-height: 340px; }
+
+    .kb-page { display: none; padding: 6px 4px 0; }
+    .kb-page.active { display: block; }
+
+    .kb-row {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin-bottom: 5px;
+      padding: 0 2px;
+    }
+    .kb-row-symbols {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      justify-content: flex-start;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .kb-row-symbols::-webkit-scrollbar { display: none; }
+
+    .kb-key {
+      background: #1c2635;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      height: 38px;
+      flex: 1;
+      min-width: 0;
+      padding: 0 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: background 0.08s, border-color 0.08s, color 0.08s;
+    }
+    .kb-key:active { background: #2a3a52; }
+
+    .kb-row-symbols .kb-key {
+      flex: 0 0 36px;
+    }
+    .kb-key-wide  { flex: 0 0 56px; }
+    .kb-key-space { flex: 1; max-width: 180px; }
+    .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
+    .kb-key-shift { flex: 0 0 38px; }
+
+    .kb-mod { color: var(--dim); }
+    .kb-mod.active {
+      color: var(--green);
+      border-color: var(--green);
+      background: rgba(0, 255, 159, 0.08);
+    }
+
+    /* Macro grid */
+    .kb-macro-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      padding: 6px 4px 0;
+    }
+    .kb-macro {
+      background: #1c2635;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--blue);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      height: 38px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 4px;
+      transition: background 0.08s, border-color 0.08s;
+    }
+    .kb-macro:active { background: #2a3a52; border-color: var(--blue); }
+
+    .kb-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px 4px;
+    }
+    .kb-footer-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      padding: 6px 8px;
+    }
+    .kb-footer-btn:active { color: var(--text); }
+
+    /* ── Toolbar ── */
+    #kb-toolbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: var(--kb-actual-h);
+      height: var(--toolbar-h);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 8px;
+      z-index: 50;
+      transform: translateY(100%);
+      transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+                  bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #kb-toolbar.open { transform: translateY(0); }
+
+    .tb-key {
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      height: 32px;
+      padding: 0 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: border-color 0.08s, color 0.08s;
+    }
+    .tb-key:active { border-color: var(--border); color: var(--green); }
+    #tb-kb-toggle { font-size: 18px; }
+    #tb-kb-toggle.active { color: var(--green); }
+
+    /* ── Floating Pill ── */
+    #kb-pill {
+      position: fixed;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      right: 14px;
+      background: rgba(17, 24, 32, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      letter-spacing: 0.12em;
+      padding: 7px 14px;
+      cursor: pointer;
+      z-index: 49;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+                  opacity 0.18s, color 0.18s, border-color 0.18s;
+    }
+    #kb-pill.active {
+      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
+      color: var(--text);
+      border-color: var(--dim);
+    }
+    #kb-pill.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
   </style>
 </head>
 <body>
@@ -389,7 +576,141 @@
     </div>
   </div>
 
+  <!-- Custom Keyboard -->
+  <div id="kb-keyboard">
+
+    <!-- Page 1: QWERTY -->
+    <div id="kb-page-qwerty" class="kb-page active">
+      <div class="kb-row">
+        <button class="kb-key" data-send="1">1</button>
+        <button class="kb-key" data-send="2">2</button>
+        <button class="kb-key" data-send="3">3</button>
+        <button class="kb-key" data-send="4">4</button>
+        <button class="kb-key" data-send="5">5</button>
+        <button class="kb-key" data-send="6">6</button>
+        <button class="kb-key" data-send="7">7</button>
+        <button class="kb-key" data-send="8">8</button>
+        <button class="kb-key" data-send="9">9</button>
+        <button class="kb-key" data-send="0">0</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key" data-char="q">q</button>
+        <button class="kb-key" data-char="w">w</button>
+        <button class="kb-key" data-char="e">e</button>
+        <button class="kb-key" data-char="r">r</button>
+        <button class="kb-key" data-char="t">t</button>
+        <button class="kb-key" data-char="y">y</button>
+        <button class="kb-key" data-char="u">u</button>
+        <button class="kb-key" data-char="i">i</button>
+        <button class="kb-key" data-char="o">o</button>
+        <button class="kb-key" data-char="p">p</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key" data-char="a">a</button>
+        <button class="kb-key" data-char="s">s</button>
+        <button class="kb-key" data-char="d">d</button>
+        <button class="kb-key" data-char="f">f</button>
+        <button class="kb-key" data-char="g">g</button>
+        <button class="kb-key" data-char="h">h</button>
+        <button class="kb-key" data-char="j">j</button>
+        <button class="kb-key" data-char="k">k</button>
+        <button class="kb-key" data-char="l">l</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key" data-char="z">z</button>
+        <button class="kb-key" data-char="x">x</button>
+        <button class="kb-key" data-char="c">c</button>
+        <button class="kb-key" data-char="v">v</button>
+        <button class="kb-key" data-char="b">b</button>
+        <button class="kb-key" data-char="n">n</button>
+        <button class="kb-key" data-char="m">m</button>
+      </div>
+      <div class="kb-row kb-row-symbols">
+        <button class="kb-key" data-send="`">`</button>
+        <button class="kb-key" data-send="~">~</button>
+        <button class="kb-key" data-send="|">|</button>
+        <button class="kb-key" data-send="\">\</button>
+        <button class="kb-key" data-send="/">/</button>
+        <button class="kb-key" data-send="-">-</button>
+        <button class="kb-key" data-send="_">_</button>
+        <button class="kb-key" data-send="=">=</button>
+        <button class="kb-key" data-send="+">+</button>
+        <button class="kb-key" data-send="[">[</button>
+        <button class="kb-key" data-send="]">]</button>
+        <button class="kb-key" data-send="{">{</button>
+        <button class="kb-key" data-send="}">}</button>
+        <button class="kb-key" data-send=";">;</button>
+        <button class="kb-key" data-send=":">:</button>
+        <button class="kb-key" data-send="'">'</button>
+        <button class="kb-key" data-send="&quot;">"</button>
+        <button class="kb-key" data-send=",">,</button>
+        <button class="kb-key" data-send=".">.</button>
+        <button class="kb-key" data-send="?">?</button>
+        <button class="kb-key" data-send="!">!</button>
+        <button class="kb-key" data-send="@">@</button>
+        <button class="kb-key" data-send="#">#</button>
+        <button class="kb-key" data-send="$">$</button>
+        <button class="kb-key" data-send="%">%</button>
+        <button class="kb-key" data-send="^">^</button>
+        <button class="kb-key" data-send="&amp;">&amp;</button>
+        <button class="kb-key" data-send="*">*</button>
+        <button class="kb-key" data-send="(">(</button>
+        <button class="kb-key" data-send=")">)</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
+        <button class="kb-key kb-mod kb-key-shift" id="kb-shift">⇧</button>
+        <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-space" data-send=" "> </button>
+        <button class="kb-key kb-key-wide" data-send="&#x7f;">⌫</button>
+        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+      </div>
+      <div class="kb-footer">
+        <button id="kb-swap-btn" class="kb-footer-btn">Macros ›</button>
+        <button id="kb-close-btn" class="kb-footer-btn">↓ hide</button>
+      </div>
+    </div>
+
+    <!-- Page 2: Macros -->
+    <div id="kb-page-macros" class="kb-page">
+      <div class="kb-macro-grid">
+        <button class="kb-macro" data-send="cd ..&#x0d;">cd ..</button>
+        <button class="kb-macro" data-send="ls -la&#x0d;">ls -la</button>
+        <button class="kb-macro" data-send="git status&#x0d;">git status</button>
+        <button class="kb-macro" data-send="git add .&#x0d;">git add .</button>
+        <button class="kb-macro" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit</button>
+        <button class="kb-macro" data-send="clear&#x0d;">clear</button>
+        <button class="kb-macro" data-send="pwd&#x0d;">pwd</button>
+        <button class="kb-macro" data-send="exit&#x0d;">exit</button>
+        <button class="kb-macro" data-send="npm run dev&#x0d;">npm dev</button>
+        <button class="kb-macro" data-send="npm install&#x0d;">npm i</button>
+        <button class="kb-macro" data-send="git diff&#x0d;">git diff</button>
+        <button class="kb-macro" data-send="git log --oneline&#x0d;">git log</button>
+      </div>
+      <div class="kb-footer">
+        <button id="kb-swap-btn-2" class="kb-footer-btn">‹ Keys</button>
+        <button id="kb-close-btn-2" class="kb-footer-btn">↓ hide</button>
+      </div>
+    </div>
+
+  </div>
+
 </div>
+
+<!-- Keyboard Toolbar -->
+<div id="kb-toolbar">
+  <button class="tb-key" data-send="&#x03;">Ctrl+C</button>
+  <button class="tb-key" data-send="&#x1b;">Esc</button>
+  <button class="tb-key" data-send="&#x09;">Tab</button>
+  <button class="tb-key" data-send="&#x1b;[A">↑</button>
+  <button class="tb-key" data-send="&#x1b;[B">↓</button>
+  <button class="tb-key" data-send="|">|</button>
+  <button class="tb-key" data-send="~">~</button>
+  <button class="tb-key" id="tb-kb-toggle">⌨</button>
+</div>
+
+<!-- Floating Pill -->
+<button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
 
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
@@ -762,6 +1083,147 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ── Custom Keyboard ───────────────────────────────────────
+  const kbKeyboard  = document.getElementById('kb-keyboard');
+  const kbToolbar   = document.getElementById('kb-toolbar');
+  const kbPill      = document.getElementById('kb-pill');
+  const kbCtrlKey   = document.getElementById('kb-ctrl');
+  const kbShiftKey  = document.getElementById('kb-shift');
+  const tbKbToggle  = document.getElementById('tb-kb-toggle');
+
+  const kbState = {
+    toolbarOpen: false,
+    keyboardOpen: false,
+    ctrlActive: false,
+    shiftActive: false,
+  };
+
+  function applyKbState() {
+    const showToolbar = kbState.toolbarOpen || kbState.keyboardOpen;
+
+    // Set keyboard height var BEFORE toggling open class so toolbar animates in sync
+    const targetH = kbState.keyboardOpen ? kbKeyboard.scrollHeight : 0;
+    document.documentElement.style.setProperty('--kb-actual-h', targetH + 'px');
+
+    kbKeyboard.classList.toggle('open', kbState.keyboardOpen);
+    kbToolbar.classList.toggle('open', showToolbar);
+    tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
+
+    kbPill.classList.toggle('active', showToolbar);
+    kbPill.classList.toggle('hidden', kbState.keyboardOpen);
+  }
+
+  // Refit terminal after keyboard transition completes
+  kbKeyboard.addEventListener('transitionend', doFit);
+
+  // Pill tap — toggle toolbar
+  kbPill.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (kbState.keyboardOpen) return;
+    kbState.toolbarOpen = !kbState.toolbarOpen;
+    applyKbState();
+  });
+
+  // Keyboard toggle button in toolbar
+  tbKbToggle.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    kbState.keyboardOpen = !kbState.keyboardOpen;
+    if (!kbState.keyboardOpen) kbState.toolbarOpen = true; // keep toolbar visible
+    applyKbState();
+  });
+
+  // Close buttons — full collapse
+  ['kb-close-btn', 'kb-close-btn-2'].forEach(id => {
+    document.getElementById(id).addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      kbState.keyboardOpen = false;
+      kbState.toolbarOpen = false;
+      applyKbState();
+    });
+  });
+
+  // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
+  document.addEventListener('pointerdown', (e) => {
+    if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
+    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target)) {
+      kbState.toolbarOpen = false;
+      applyKbState();
+    }
+  });
+
+  // Page swap
+  document.getElementById('kb-swap-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    document.getElementById('kb-page-qwerty').classList.remove('active');
+    document.getElementById('kb-page-macros').classList.add('active');
+  });
+  document.getElementById('kb-swap-btn-2').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    document.getElementById('kb-page-macros').classList.remove('active');
+    document.getElementById('kb-page-qwerty').classList.add('active');
+  });
+
+  // Sticky Ctrl
+  kbCtrlKey.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    kbState.ctrlActive = !kbState.ctrlActive;
+    kbCtrlKey.classList.toggle('active', kbState.ctrlActive);
+  });
+
+  // Sticky Shift — also updates key labels
+  kbShiftKey.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    kbState.shiftActive = !kbState.shiftActive;
+    kbShiftKey.classList.toggle('active', kbState.shiftActive);
+    document.querySelectorAll('#kb-page-qwerty .kb-key[data-char]').forEach(btn => {
+      btn.textContent = kbState.shiftActive
+        ? btn.dataset.char.toUpperCase()
+        : btn.dataset.char;
+    });
+  });
+
+  // Key dispatch — keyboard panel (event delegation)
+  kbKeyboard.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('[data-send],[data-char]');
+    if (!key || key === kbCtrlKey || key === kbShiftKey) return;
+    e.stopPropagation();
+
+    let payload;
+    if (key.dataset.char !== undefined) {
+      const ch = kbState.shiftActive
+        ? key.dataset.char.toUpperCase()
+        : key.dataset.char;
+
+      if (kbState.ctrlActive) {
+        payload = String.fromCharCode(ch.toLowerCase().charCodeAt(0) - 96);
+        kbState.ctrlActive = false;
+        kbCtrlKey.classList.remove('active');
+      } else {
+        payload = ch;
+      }
+
+      if (kbState.shiftActive) {
+        kbState.shiftActive = false;
+        kbShiftKey.classList.remove('active');
+        document.querySelectorAll('#kb-page-qwerty .kb-key[data-char]').forEach(btn => {
+          btn.textContent = btn.dataset.char;
+        });
+      }
+    } else {
+      payload = key.dataset.send;
+    }
+
+    sendData(payload);
+  });
+
+  // Toolbar key dispatch (simple passthrough, no ctrl/shift)
+  kbToolbar.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('[data-send]');
+    if (!key || key === tbKbToggle) return;
+    e.stopPropagation();
+    sendData(key.dataset.send);
+  });
 })();
 </script>
 </body>
