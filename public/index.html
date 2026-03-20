@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="TermTunnel">
+  <meta name="theme-color" content="#0a0e14">
+  <link rel="manifest" href="/manifest.json">
+  <title>TermTunnel</title>
+
+  <!-- JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- xterm.js -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.js"></script>
+
+  <style>
+    :root {
+      --bg: #0a0e14;
+      --surface: #111820;
+      --border: #1e2a38;
+      --green: #00ff9f;
+      --amber: #ffb454;
+      --red: #ff4444;
+      --text: #b3b1ad;
+      --dim: #4a5568;
+      --header-h: 48px;
+      --toolbar-h: 52px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      height: 100dvh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      padding-top: env(safe-area-inset-top);
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
+    }
+
+    /* ── Header ── */
+    #header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: var(--header-h);
+      padding: 0 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      z-index: 10;
+    }
+
+    #logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      color: var(--green);
+    }
+
+    #status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--dim);
+      transition: background 0.3s, box-shadow 0.3s;
+      flex-shrink: 0;
+    }
+    #status-dot.connected {
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green), 0 0 12px var(--green);
+    }
+    #status-dot.connecting {
+      background: var(--amber);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    #status-dot.error {
+      background: var(--red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    #header-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    .icon-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text);
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s, color 0.2s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .icon-btn:active { border-color: var(--green); color: var(--green); }
+
+    /* ── Terminal Container ── */
+    #terminal-wrap {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg);
+    }
+
+    #terminal {
+      width: 100%;
+      height: 100%;
+    }
+
+    .xterm { height: 100%; }
+    .xterm-viewport { background: var(--bg) !important; }
+
+    /* ── Connect Overlay ── */
+    #connect-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 14, 20, 0.97);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.35s ease, visibility 0.35s ease;
+    }
+    #connect-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    .connect-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 24px;
+      width: min(360px, calc(100vw - 32px));
+    }
+
+    .connect-card h2 {
+      font-size: 18px;
+      color: var(--green);
+      margin-bottom: 4px;
+      letter-spacing: 0.05em;
+    }
+
+    .connect-card p {
+      font-size: 11px;
+      color: var(--dim);
+      margin-bottom: 20px;
+    }
+
+    .field {
+      margin-bottom: 14px;
+    }
+    .field label {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+    .field input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: var(--green); }
+    .field input::placeholder { color: var(--dim); }
+
+    .field-row {
+      display: flex;
+      gap: 10px;
+    }
+    .field-row .field { flex: 1; }
+    .field-row .field:last-child { flex: 0 0 90px; }
+
+    #connect-btn {
+      width: 100%;
+      padding: 12px;
+      background: var(--green);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      cursor: pointer;
+      margin-top: 6px;
+      transition: opacity 0.2s;
+    }
+    #connect-btn:active { opacity: 0.8; }
+
+    #connect-error {
+      font-size: 11px;
+      color: var(--red);
+      margin-top: 10px;
+      min-height: 16px;
+      text-align: center;
+    }
+
+    /* ── Mobile Toolbar ── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      height: var(--toolbar-h);
+      padding: 0 6px;
+      padding-bottom: env(safe-area-inset-bottom);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex-shrink: 0;
+      scrollbar-width: none;
+      gap: 4px;
+    }
+    #toolbar::-webkit-scrollbar { display: none; }
+
+    .tb-btn {
+      flex-shrink: 0;
+      height: 36px;
+      min-width: 36px;
+      padding: 0 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.15s, color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .tb-btn:active { border-color: var(--green); color: var(--green); }
+    .tb-btn.ctrl-active {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: rgba(255, 180, 84, 0.08);
+    }
+
+    /* ── Settings Panel ── */
+    #settings-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 30;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s, visibility 0.25s;
+    }
+    #settings-backdrop.open { opacity: 1; visibility: visible; }
+
+    #settings-panel {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-radius: 16px 16px 0 0;
+      padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+      z-index: 31;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #settings-panel.open { transform: translateY(0); }
+
+    #settings-panel h3 {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      margin-bottom: 20px;
+    }
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label {
+      font-size: 12px;
+      color: var(--text);
+    }
+    .setting-label small {
+      display: block;
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 2px;
+    }
+
+    .setting-row select,
+    .setting-row input[type="number"] {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 6px 10px;
+      outline: none;
+      width: 100px;
+      text-align: right;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 42px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: var(--border);
+      border-radius: 24px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      left: 3px;
+      top: 3px;
+      background: var(--dim);
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle input:checked + .toggle-slider { background: rgba(0,255,159,0.2); }
+    .toggle input:checked + .toggle-slider::before {
+      transform: translateX(18px);
+      background: var(--green);
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+  <!-- Header -->
+  <div id="header">
+    <div id="logo">
+      <div id="status-dot"></div>
+      TERMTUNNEL ›_
+    </div>
+    <div id="header-actions">
+      <button class="icon-btn" id="reconnect-btn" title="Reconnect">⟳</button>
+      <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
+    </div>
+  </div>
+
+  <!-- Terminal + Overlay -->
+  <div id="terminal-wrap">
+    <div id="terminal"></div>
+
+    <div id="connect-overlay">
+      <div class="connect-card">
+        <h2>TERMTUNNEL</h2>
+        <p>WebSocket → SSH bridge</p>
+
+        <div class="field-row">
+          <div class="field">
+            <label>Host</label>
+            <input type="text" id="inp-host" placeholder="192.168.1.x" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label>Port</label>
+            <input type="number" id="inp-port" placeholder="3000" inputmode="numeric">
+          </div>
+        </div>
+        <div class="field">
+          <label>Auth Token</label>
+          <input type="password" id="inp-token" placeholder="paste token here" autocomplete="off">
+        </div>
+
+        <button id="connect-btn">CONNECT</button>
+        <div id="connect-error"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile Toolbar -->
+  <div id="toolbar">
+    <button class="tb-btn" id="ctrl-btn">Ctrl</button>
+    <button class="tb-btn" data-key="tab">Tab</button>
+    <button class="tb-btn" data-key="esc">Esc</button>
+    <button class="tb-btn" data-key="up">↑</button>
+    <button class="tb-btn" data-key="down">↓</button>
+    <button class="tb-btn" data-key="left">←</button>
+    <button class="tb-btn" data-key="right">→</button>
+    <button class="tb-btn" data-char="|">|</button>
+    <button class="tb-btn" data-char="~">~</button>
+    <button class="tb-btn" data-char="/">/</button>
+    <button class="tb-btn" data-char="-">-</button>
+    <button class="tb-btn" data-char="_">_</button>
+  </div>
+</div>
+
+<!-- Settings Backdrop + Panel -->
+<div id="settings-backdrop"></div>
+<div id="settings-panel">
+  <h3>SETTINGS</h3>
+  <div class="setting-row">
+    <div class="setting-label">Font Size<small>px</small></div>
+    <input type="number" id="set-fontsize" value="14" min="8" max="32">
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Scrollback<small>lines</small></div>
+    <input type="number" id="set-scrollback" value="2000" min="100" max="10000">
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Cursor Style</div>
+    <select id="set-cursor">
+      <option value="block">Block</option>
+      <option value="underline">Underline</option>
+      <option value="bar">Bar</option>
+    </select>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Auto-Reconnect<small>on disconnect</small></div>
+    <label class="toggle">
+      <input type="checkbox" id="set-reconnect" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ── State ────────────────────────────────────────────────
+  let ws = null;
+  let term = null;
+  let fitAddon = null;
+  let ctrlActive = false;
+  let reconnectAttempts = 0;
+  let reconnectTimer = null;
+  const MAX_RECONNECT = 5;
+  const RECONNECT_CAP = 15000;
+
+  // ── Settings persistence ─────────────────────────────────
+  const SETTINGS_KEY = 'termtunnel_settings';
+  const CONN_KEY = 'termtunnel_conn';
+
+  const defaultSettings = {
+    fontSize: 14,
+    scrollback: 2000,
+    cursorStyle: 'block',
+    autoReconnect: true,
+  };
+
+  function loadSettings() {
+    try { return { ...defaultSettings, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; }
+    catch { return { ...defaultSettings }; }
+  }
+
+  function saveSettings(s) {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+  }
+
+  function loadConn() {
+    try { return JSON.parse(localStorage.getItem(CONN_KEY) || '{}'); }
+    catch { return {}; }
+  }
+
+  function saveConn(c) {
+    localStorage.setItem(CONN_KEY, JSON.stringify(c));
+  }
+
+  // ── Terminal init ─────────────────────────────────────────
+  const settings = loadSettings();
+
+  term = new Terminal({
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: settings.fontSize,
+    lineHeight: 1.2,
+    cursorBlink: true,
+    cursorStyle: settings.cursorStyle,
+    scrollback: settings.scrollback,
+    allowProposedApi: true,
+    theme: {
+      background: '#0a0e14',
+      foreground: '#b3b1ad',
+      cursor: '#00ff9f',
+      cursorAccent: '#0a0e14',
+      selectionBackground: 'rgba(0,255,159,0.2)',
+      black: '#0a0e14',
+      red: '#ff4444',
+      green: '#00ff9f',
+      yellow: '#ffb454',
+      blue: '#4d9de0',
+      magenta: '#c397d8',
+      cyan: '#5ccfe6',
+      white: '#b3b1ad',
+      brightBlack: '#4a5568',
+      brightRed: '#ff6b6b',
+      brightGreen: '#00ffb3',
+      brightYellow: '#ffd580',
+      brightBlue: '#6ab0f5',
+      brightMagenta: '#d4aaff',
+      brightCyan: '#7fe8f2',
+      brightWhite: '#e8e6e3',
+    },
+  });
+
+  fitAddon = new FitAddon.FitAddon();
+  const webLinksAddon = new WebLinksAddon.WebLinksAddon();
+  term.loadAddon(fitAddon);
+  term.loadAddon(webLinksAddon);
+  term.open(document.getElementById('terminal'));
+
+  term.writeln('\x1b[32mTermTunnel\x1b[0m \x1b[2m— WebSocket SSH Bridge\x1b[0m');
+  term.writeln('\x1b[2mEnter connection details to begin.\x1b[0m');
+  term.writeln('');
+
+  // ── Resize handling ───────────────────────────────────────
+  function doFit() {
+    try { fitAddon.fit(); } catch {}
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      sendMsg({ type: 'resize', cols: term.cols, rows: term.rows });
+    }
+  }
+
+  const resizeObserver = new ResizeObserver(doFit);
+  resizeObserver.observe(document.getElementById('terminal-wrap'));
+
+  window.visualViewport?.addEventListener('resize', doFit);
+  window.addEventListener('resize', doFit);
+
+  // ── Terminal input → WebSocket ────────────────────────────
+  term.onData((data) => {
+    sendData(data);
+  });
+
+  function sendData(str) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      sendMsg({ type: 'data', data: btoa(unescape(encodeURIComponent(str))) });
+    }
+  }
+
+  function sendMsg(obj) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(obj));
+    }
+  }
+
+  // ── Status dot ───────────────────────────────────────────
+  const dot = document.getElementById('status-dot');
+  function setStatus(state) {
+    dot.className = '';
+    if (state) dot.classList.add(state);
+  }
+
+  // ── WebSocket connection ──────────────────────────────────
+  function connect(host, port, token) {
+    clearTimeout(reconnectTimer);
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const url = `${proto}//${host}:${port}/ws${token ? '?token=' + encodeURIComponent(token) : ''}`;
+
+    setStatus('connecting');
+    setError('');
+
+    try {
+      ws = new WebSocket(url);
+    } catch (e) {
+      setError('Invalid host/port');
+      setStatus('error');
+      return;
+    }
+
+    ws.onopen = () => {
+      reconnectAttempts = 0;
+    };
+
+    ws.onmessage = (ev) => {
+      let msg;
+      try { msg = JSON.parse(ev.data); } catch { return; }
+
+      if (msg.type === 'data') {
+        const decoded = decodeURIComponent(escape(atob(msg.data)));
+        term.write(decoded);
+      } else if (msg.type === 'status') {
+        if (msg.data === 'connected') {
+          hideOverlay();
+          setStatus('connected');
+          doFit();
+          term.focus();
+        } else if (msg.data === 'disconnected') {
+          setStatus('idle');
+          scheduleReconnect();
+        }
+      } else if (msg.type === 'error') {
+        setError(msg.data);
+        setStatus('error');
+        term.writeln(`\r\n\x1b[31m[error] ${msg.data}\x1b[0m`);
+      }
+    };
+
+    ws.onerror = () => {
+      setStatus('error');
+      setError('Connection failed');
+    };
+
+    ws.onclose = (ev) => {
+      setStatus('error');
+      if (ev.code === 4001) {
+        setError('Invalid auth token');
+        showOverlay();
+      } else {
+        scheduleReconnect();
+      }
+    };
+  }
+
+  // ── Auto-reconnect ────────────────────────────────────────
+  function scheduleReconnect() {
+    const s = loadSettings();
+    if (!s.autoReconnect) return;
+    if (reconnectAttempts >= MAX_RECONNECT) {
+      term.writeln('\r\n\x1b[31m[reconnect] Max attempts reached. Open settings to retry.\x1b[0m');
+      showOverlay();
+      return;
+    }
+    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), RECONNECT_CAP);
+    reconnectAttempts++;
+    term.writeln(`\r\n\x1b[33m[reconnect] Attempt ${reconnectAttempts}/${MAX_RECONNECT} in ${delay/1000}s…\x1b[0m`);
+    setStatus('connecting');
+    reconnectTimer = setTimeout(() => {
+      const conn = loadConn();
+      if (conn.host && conn.port) connect(conn.host, conn.port, conn.token || '');
+    }, delay);
+  }
+
+  // ── Overlay helpers ───────────────────────────────────────
+  function showOverlay() {
+    document.getElementById('connect-overlay').classList.remove('hidden');
+  }
+  function hideOverlay() {
+    document.getElementById('connect-overlay').classList.add('hidden');
+  }
+  function setError(msg) {
+    document.getElementById('connect-error').textContent = msg;
+  }
+
+  // ── Connect form ──────────────────────────────────────────
+  const conn = loadConn();
+  if (conn.host) document.getElementById('inp-host').value = conn.host;
+  if (conn.port) document.getElementById('inp-port').value = conn.port;
+  if (conn.token) document.getElementById('inp-token').value = conn.token;
+
+  document.getElementById('connect-btn').addEventListener('click', () => {
+    const host = document.getElementById('inp-host').value.trim();
+    const port = document.getElementById('inp-port').value.trim() || '3000';
+    const token = document.getElementById('inp-token').value.trim();
+    if (!host) { setError('Host is required'); return; }
+    saveConn({ host, port, token });
+    connect(host, port, token);
+  });
+
+  // Enter key submits form
+  ['inp-host', 'inp-port', 'inp-token'].forEach((id) => {
+    document.getElementById(id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('connect-btn').click();
+    });
+  });
+
+  // Auto-connect if saved config exists
+  if (conn.host && conn.port) {
+    setTimeout(() => connect(conn.host, conn.port, conn.token || ''), 300);
+  }
+
+  // ── Reconnect button ──────────────────────────────────────
+  document.getElementById('reconnect-btn').addEventListener('click', () => {
+    reconnectAttempts = 0;
+    const c = loadConn();
+    if (c.host && c.port) {
+      connect(c.host, c.port, c.token || '');
+    } else {
+      showOverlay();
+    }
+  });
+
+  // ── Settings panel ────────────────────────────────────────
+  const backdrop = document.getElementById('settings-backdrop');
+  const panel = document.getElementById('settings-panel');
+
+  function openSettings() {
+    backdrop.classList.add('open');
+    panel.classList.add('open');
+  }
+  function closeSettings() {
+    backdrop.classList.remove('open');
+    panel.classList.remove('open');
+    applySettings();
+  }
+
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  backdrop.addEventListener('click', closeSettings);
+
+  // Populate settings UI
+  document.getElementById('set-fontsize').value = settings.fontSize;
+  document.getElementById('set-scrollback').value = settings.scrollback;
+  document.getElementById('set-cursor').value = settings.cursorStyle;
+  document.getElementById('set-reconnect').checked = settings.autoReconnect;
+
+  function applySettings() {
+    const s = {
+      fontSize: parseInt(document.getElementById('set-fontsize').value, 10) || 14,
+      scrollback: parseInt(document.getElementById('set-scrollback').value, 10) || 2000,
+      cursorStyle: document.getElementById('set-cursor').value,
+      autoReconnect: document.getElementById('set-reconnect').checked,
+    };
+    saveSettings(s);
+    term.options.fontSize = s.fontSize;
+    term.options.scrollback = s.scrollback;
+    term.options.cursorStyle = s.cursorStyle;
+    doFit();
+  }
+
+  // ── Mobile toolbar ────────────────────────────────────────
+  const ctrlBtn = document.getElementById('ctrl-btn');
+
+  ctrlBtn.addEventListener('click', () => {
+    ctrlActive = !ctrlActive;
+    ctrlBtn.classList.toggle('ctrl-active', ctrlActive);
+  });
+
+  document.querySelectorAll('.tb-btn[data-key]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.key;
+      const sequences = {
+        tab: '\t',
+        esc: '\x1b',
+        up: '\x1b[A',
+        down: '\x1b[B',
+        right: '\x1b[C',
+        left: '\x1b[D',
+      };
+      if (ctrlActive) {
+        // Ctrl + arrow isn't common but allow it
+        sendData(sequences[key] || '');
+        ctrlActive = false;
+        ctrlBtn.classList.remove('ctrl-active');
+      } else {
+        sendData(sequences[key] || '');
+      }
+    });
+  });
+
+  document.querySelectorAll('.tb-btn[data-char]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const char = btn.dataset.char;
+      if (ctrlActive) {
+        const code = char.toUpperCase().charCodeAt(0) - 64;
+        if (code >= 1 && code <= 26) {
+          sendData(String.fromCharCode(code));
+        } else {
+          sendData(char);
+        }
+        ctrlActive = false;
+        ctrlBtn.classList.remove('ctrl-active');
+      } else {
+        sendData(char);
+      }
+    });
+  });
+
+  // ── Service Worker ────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+})();
+</script>
+</body>
+</html>
