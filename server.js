@@ -8,6 +8,7 @@ import { homedir } from 'os';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -20,6 +21,12 @@ const SSH_KEY_PATH = process.env.SSH_KEY_PATH
   : resolve(homedir(), '.ssh', 'id_ed25519');
 const SSH_PASSWORD = process.env.SSH_PASSWORD;
 const AUTH_TOKEN = process.env.AUTH_TOKEN;
+
+// Use tmux for session persistence if available — store full path for SSH sessions
+const TMUX = (() => {
+  try { return execSync('which tmux').toString().trim(); }
+  catch { return null; }
+})();
 
 const app = express();
 app.use(express.static(resolve(__dirname, 'public')));
@@ -77,7 +84,9 @@ wss.on('connection', (ws, req) => {
     console.log(`[SSH] Connected to ${SSH_HOST}:${SSH_PORT} as ${SSH_USER}`);
     sshReady = true;
 
-    ssh.shell({ term: 'xterm-256color', cols: 80, rows: 24 }, (err, sh) => {
+    const ptyOpts = { term: 'xterm-256color', cols: 80, rows: 24 };
+
+    ssh.shell(ptyOpts, (err, sh) => {
       if (err) {
         console.error('[SSH] Shell error:', err.message);
         send({ type: 'error', data: `Shell error: ${err.message}` });
@@ -92,7 +101,7 @@ wss.on('connection', (ws, req) => {
         send({ type: 'data', data: Buffer.from(data).toString('base64') });
       });
 
-      stream.stderr.on('data', (data) => {
+      stream.stderr?.on('data', (data) => {
         send({ type: 'data', data: Buffer.from(data).toString('base64') });
       });
 
@@ -101,6 +110,11 @@ wss.on('connection', (ws, req) => {
         send({ type: 'status', data: 'disconnected' });
         ws.close();
       });
+
+      if (TMUX) {
+        // Replace the shell process with tmux — session survives WebSocket drops
+        sh.write(`exec ${TMUX} new-session -A -s termtunnel -e TERMTUNNEL=1\r`);
+      }
     });
   });
 
@@ -163,4 +177,5 @@ server.listen(PORT, () => {
   console.log(`[TermTunnel] Server listening on http://localhost:${PORT}`);
   console.log(`[TermTunnel] SSH target: ${SSH_USER}@${SSH_HOST}:${SSH_PORT}`);
   console.log(`[TermTunnel] Auth token: ${AUTH_TOKEN ? AUTH_TOKEN.slice(0, 8) + '...' : '(none — open access)'}`);
+  console.log(`[TermTunnel] Session persistence: ${TMUX ? `tmux at ${TMUX}` : 'none (tmux not found)'}`);
 });

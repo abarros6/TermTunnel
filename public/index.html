@@ -27,11 +27,11 @@
       --border: #1e2a38;
       --green: #00ff9f;
       --amber: #ffb454;
+      --blue: #5ccfe6;
       --red: #ff4444;
       --text: #b3b1ad;
       --dim: #4a5568;
       --header-h: 48px;
-      --toolbar-h: 52px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -124,6 +124,10 @@
       -webkit-tap-highlight-color: transparent;
     }
     .icon-btn:active { border-color: var(--green); color: var(--green); }
+
+    .icon-btn.cb-btn { color: var(--blue); border-color: rgba(92, 207, 230, 0.25); padding: 0 10px; width: auto; font-size: 12px; }
+    .icon-btn.cb-btn:active { border-color: var(--blue); }
+    .icon-btn.cb-btn.flash { border-color: var(--blue); background: rgba(92, 207, 230, 0.1); }
 
     /* ── Terminal Container ── */
     #terminal-wrap {
@@ -238,51 +242,6 @@
       text-align: center;
     }
 
-    /* ── Mobile Toolbar ── */
-    #toolbar {
-      display: flex;
-      align-items: center;
-      height: var(--toolbar-h);
-      padding: 0 6px;
-      padding-bottom: env(safe-area-inset-bottom);
-      background: var(--surface);
-      border-top: 1px solid var(--border);
-      overflow-x: auto;
-      overflow-y: hidden;
-      flex-shrink: 0;
-      scrollbar-width: none;
-      gap: 4px;
-    }
-    #toolbar::-webkit-scrollbar { display: none; }
-
-    .tb-btn {
-      flex-shrink: 0;
-      height: 36px;
-      min-width: 36px;
-      padding: 0 10px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: border-color 0.15s, color 0.15s, background 0.15s;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    .tb-btn:active { border-color: var(--green); color: var(--green); }
-    .tb-btn.ctrl-active {
-      border-color: var(--amber);
-      color: var(--amber);
-      background: rgba(255, 180, 84, 0.08);
-    }
-
     /* ── Settings Panel ── */
     #settings-backdrop {
       position: fixed;
@@ -393,6 +352,8 @@
       TERMTUNNEL ›_
     </div>
     <div id="header-actions">
+      <button class="icon-btn cb-btn" id="copy-btn" title="Copy selection">Copy</button>
+      <button class="icon-btn cb-btn" id="paste-btn" title="Paste from clipboard">Paste</button>
       <button class="icon-btn" id="reconnect-btn" title="Reconnect">⟳</button>
       <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
     </div>
@@ -428,21 +389,6 @@
     </div>
   </div>
 
-  <!-- Mobile Toolbar -->
-  <div id="toolbar">
-    <button class="tb-btn" id="ctrl-btn">Ctrl</button>
-    <button class="tb-btn" data-key="tab">Tab</button>
-    <button class="tb-btn" data-key="esc">Esc</button>
-    <button class="tb-btn" data-key="up">↑</button>
-    <button class="tb-btn" data-key="down">↓</button>
-    <button class="tb-btn" data-key="left">←</button>
-    <button class="tb-btn" data-key="right">→</button>
-    <button class="tb-btn" data-char="|">|</button>
-    <button class="tb-btn" data-char="~">~</button>
-    <button class="tb-btn" data-char="/">/</button>
-    <button class="tb-btn" data-char="-">-</button>
-    <button class="tb-btn" data-char="_">_</button>
-  </div>
 </div>
 
 <!-- Settings Backdrop + Panel -->
@@ -480,9 +426,9 @@
   let ws = null;
   let term = null;
   let fitAddon = null;
-  let ctrlActive = false;
   let reconnectAttempts = 0;
   let reconnectTimer = null;
+  let wasConnected = false;   // tracks if we've ever reached 'connected' state
   const MAX_RECONNECT = 5;
   const RECONNECT_CAP = 15000;
 
@@ -631,6 +577,7 @@
         term.write(decoded);
       } else if (msg.type === 'status') {
         if (msg.data === 'connected') {
+          wasConnected = true;
           hideOverlay();
           setStatus('connected');
           doFit();
@@ -680,6 +627,23 @@
       if (conn.host && conn.port) connect(conn.host, conn.port, conn.token || '');
     }, delay);
   }
+
+  // ── Background / foreground handling ─────────────────────
+  // When iOS backgrounds the app the WebSocket is likely killed.
+  // When the user returns, silently reconnect without showing the overlay.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && wasConnected) {
+      if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+        clearTimeout(reconnectTimer);
+        reconnectAttempts = 0;
+        const conn = loadConn();
+        if (conn.host && conn.port) {
+          term.writeln('\r\n\x1b[33m[reconnect] Reconnecting…\x1b[0m');
+          connect(conn.host, conn.port, conn.token || '');
+        }
+      }
+    }
+  });
 
   // ── Overlay helpers ───────────────────────────────────────
   function showOverlay() {
@@ -767,52 +731,27 @@
     doFit();
   }
 
-  // ── Mobile toolbar ────────────────────────────────────────
-  const ctrlBtn = document.getElementById('ctrl-btn');
+  // ── Clipboard ─────────────────────────────────────────────
+  function flashBtn(btn) {
+    btn.classList.add('flash');
+    setTimeout(() => btn.classList.remove('flash'), 300);
+  }
 
-  ctrlBtn.addEventListener('click', () => {
-    ctrlActive = !ctrlActive;
-    ctrlBtn.classList.toggle('ctrl-active', ctrlActive);
+  document.getElementById('copy-btn').addEventListener('click', () => {
+    const selection = term.getSelection();
+    if (!selection) return;
+    navigator.clipboard.writeText(selection).then(() => {
+      flashBtn(document.getElementById('copy-btn'));
+    }).catch(() => {});
   });
 
-  document.querySelectorAll('.tb-btn[data-key]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const key = btn.dataset.key;
-      const sequences = {
-        tab: '\t',
-        esc: '\x1b',
-        up: '\x1b[A',
-        down: '\x1b[B',
-        right: '\x1b[C',
-        left: '\x1b[D',
-      };
-      if (ctrlActive) {
-        // Ctrl + arrow isn't common but allow it
-        sendData(sequences[key] || '');
-        ctrlActive = false;
-        ctrlBtn.classList.remove('ctrl-active');
-      } else {
-        sendData(sequences[key] || '');
+  document.getElementById('paste-btn').addEventListener('click', () => {
+    navigator.clipboard.readText().then((text) => {
+      if (text) {
+        sendData(text);
+        flashBtn(document.getElementById('paste-btn'));
       }
-    });
-  });
-
-  document.querySelectorAll('.tb-btn[data-char]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const char = btn.dataset.char;
-      if (ctrlActive) {
-        const code = char.toUpperCase().charCodeAt(0) - 64;
-        if (code >= 1 && code <= 26) {
-          sendData(String.fromCharCode(code));
-        } else {
-          sendData(char);
-        }
-        ctrlActive = false;
-        ctrlBtn.classList.remove('ctrl-active');
-      } else {
-        sendData(char);
-      }
-    });
+    }).catch(() => {});
   });
 
   // ── Service Worker ────────────────────────────────────────
