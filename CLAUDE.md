@@ -77,7 +77,7 @@ pm2 logs termtunnel             # view logs
 pm2 restart termtunnel          # restart
 grep AUTH_TOKEN .env            # retrieve token
 tailscale ip -4                 # get this machine's Tailscale IP
-ssh <username>@127.0.0.1                # test SSH works locally
+ssh <username>@127.0.0.1         # test SSH works locally
 curl http://localhost:3000/health  # test server is up
 tmux attach -t termtunnel       # attach to the terminal session locally
 tmux kill-session -t termtunnel # kill session (next connect starts fresh)
