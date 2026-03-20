@@ -503,6 +503,10 @@
   term.loadAddon(webLinksAddon);
   term.open(document.getElementById('terminal'));
 
+  // Suppress iOS native keyboard — we'll drive input from a custom keyboard
+  const xtermTextarea = document.querySelector('.xterm-helper-textarea');
+  if (xtermTextarea) xtermTextarea.setAttribute('inputmode', 'none');
+
   term.writeln('\x1b[32mTermTunnel\x1b[0m \x1b[2m— WebSocket SSH Bridge\x1b[0m');
   term.writeln('\x1b[2mEnter connection details to begin.\x1b[0m');
   term.writeln('');
