@@ -1389,7 +1389,11 @@
   });
 
   // ── Floating D-Pad — unified drag surface ────────────────
-  const DPAD_KEYS  = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+  const DPAD_KEYS_NORMAL = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+  const DPAD_KEYS_APP    = { up: '\x1bOA', down: '\x1bOB', left: '\x1bOD', right: '\x1bOC' };
+  function dpadKey(dir) {
+    return (term?.modes?.applicationCursorKeysMode ? DPAD_KEYS_APP : DPAD_KEYS_NORMAL)[dir];
+  }
   const DPAD_DEAD  = 16;  // px dead zone from center
   const DPAD_DELAY = 320; // ms before repeat starts
   const DPAD_RATE  = 180; // ms between repeats
@@ -1414,7 +1418,7 @@
   }
 
   function dpadSend(dir) {
-    sendData(DPAD_KEYS[dir]);
+    sendData(dpadKey(dir));
     dpadFlash(dir);
   }
 
