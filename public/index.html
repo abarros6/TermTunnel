@@ -472,10 +472,11 @@
     }
 
     .kb-key-wide   { flex: 0 0 56px; }
-    .kb-key-period { flex: 0 0 42px; }
+
     .kb-key-space  { flex: 1; }
     .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
     .kb-key-shift { flex: 0 0 38px; }
+    #kb-page-qwerty.shifted .kb-key[data-char] { text-transform: uppercase; }
 
     .kb-key-mode { flex: 0 0 48px; font-size: 11px; color: var(--blue); }
     .kb-key-mode:active { border-color: var(--blue); color: var(--blue); }
@@ -847,8 +848,6 @@
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
-        <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
-        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-dpad" id="kb-dpad-toggle">⊕</button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
@@ -894,8 +893,6 @@
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-num">Ctrl</button>
-        <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
-        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
@@ -940,8 +937,6 @@
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-sym">Ctrl</button>
-        <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
-        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
@@ -1187,8 +1182,7 @@
   // ── Status dot ───────────────────────────────────────────
   const dot = document.getElementById('status-dot');
   function setStatus(state) {
-    dot.className = '';
-    if (state) dot.classList.add(state);
+    dot.className = state || '';
   }
 
   // ── WebSocket connection ──────────────────────────────────
@@ -1484,9 +1478,11 @@
       autoReconnect: document.getElementById('set-reconnect').checked,
     };
     saveSettings(s);
-    term.options.fontSize = s.fontSize;
-    term.options.scrollback = s.scrollback;
-    term.options.cursorStyle = s.cursorStyle;
+    Object.assign(term.options, {
+      fontSize: s.fontSize,
+      scrollback: s.scrollback,
+      cursorStyle: s.cursorStyle,
+    });
     doFit();
   }
 
@@ -1542,23 +1538,20 @@
 
   function applyKbState() {
     const showToolbar = kbState.toolbarOpen || kbState.keyboardOpen;
+    if (!kbState.keyboardOpen) kbState.dpadOpen = false;
 
-    // Set keyboard height var BEFORE toggling open class so toolbar animates in sync
+    // Read layout before writes to avoid interleaved reflows
     const targetH = kbState.keyboardOpen ? kbKeyboard.scrollHeight : 0;
-    document.documentElement.style.setProperty('--kb-actual-h', targetH + 'px');
 
+    // Batch all DOM writes
+    document.documentElement.style.setProperty('--kb-actual-h', targetH + 'px');
     kbKeyboard.classList.toggle('open', kbState.keyboardOpen);
     kbToolbar.classList.toggle('open', showToolbar);
     tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
-
     kbPill.classList.toggle('active', showToolbar);
     kbPill.classList.toggle('hidden', kbState.keyboardOpen);
-
-    // Close D-pad if keyboard was closed
-    if (!kbState.keyboardOpen) kbState.dpadOpen = false;
     floatDpad.classList.toggle('open', kbState.dpadOpen);
-    const dpadToggleBtn = document.getElementById('kb-dpad-toggle');
-    if (dpadToggleBtn) dpadToggleBtn.classList.toggle('active', kbState.dpadOpen);
+    document.getElementById('kb-dpad-toggle')?.classList.toggle('active', kbState.dpadOpen);
   }
 
   // Refit terminal after keyboard transition completes
@@ -1622,8 +1615,7 @@
     const el = floatDpad.querySelector(`.fdp-${dir}`);
     if (!el) return;
     el.classList.remove('flash');
-    void el.offsetWidth; // reflow to restart animation
-    el.classList.add('flash');
+    requestAnimationFrame(() => el.classList.add('flash'));
   }
 
   function dpadSend(dir) {
@@ -1752,11 +1744,10 @@
   }
   function highlightAt(x, y) {
     const el = document.elementFromPoint(x, y);
-    const item = el?.closest('.mp-item');
-    if (lpHighlighted && lpHighlighted !== item) {
-      lpHighlighted.classList.remove('highlighted');
-    }
-    lpHighlighted = item || null;
+    const item = el?.closest('.mp-item') || null;
+    if (item === lpHighlighted) return;
+    if (lpHighlighted) lpHighlighted.classList.remove('highlighted');
+    lpHighlighted = item;
     if (lpHighlighted) lpHighlighted.classList.add('highlighted');
   }
 
@@ -1785,16 +1776,13 @@
     hideMacroPicker();
   });
 
-  // Sticky Shift — also updates key labels
+  // Sticky Shift — single class toggle instead of mutating 27 key labels
+  const kbQwertyPage = document.getElementById('kb-page-qwerty');
   kbShiftKey.addEventListener('pointerdown', (e) => {
     e.stopPropagation();
     kbState.shiftActive = !kbState.shiftActive;
     kbShiftKey.classList.toggle('active', kbState.shiftActive);
-    document.querySelectorAll('#kb-page-qwerty .kb-key[data-char]').forEach(btn => {
-      btn.textContent = kbState.shiftActive
-        ? btn.dataset.char.toUpperCase()
-        : btn.dataset.char;
-    });
+    kbQwertyPage.classList.toggle('shifted', kbState.shiftActive);
   });
 
   // Key repeat state (for hold-to-repeat keys like ⌫)
@@ -1803,6 +1791,7 @@
   function kbStopRepeat() {
     clearTimeout(kbRepeatDelay);
     clearInterval(kbRepeatInterval);
+    clearTimeout(spaceLpTimer);
     kbRepeatDelay = kbRepeatInterval = null;
   }
   document.addEventListener('pointerup',     kbStopRepeat);
@@ -1815,6 +1804,8 @@
   let kbLpKey      = null;
   let kbLpAlts     = [];
   let kbLpHighIdx  = -1;
+  let spaceLpTimer  = null;
+  let lastSpaceDown = 0;
 
   function kbCalloutShow(key) {
     const label = key.dataset.char || key.textContent.trim() || '·';
@@ -1846,10 +1837,10 @@
 
   function kbCalloutHide() {
     kbCallout.classList.remove('visible');
+    kbCallout.innerHTML = '';
     kbLpActive = false;
     kbLpKey    = null;
     kbLpHighIdx = -1;
-    setTimeout(() => { kbCallout.innerHTML = ''; }, 100);
   }
 
   function kbAltHighlight(x, y) {
@@ -1882,9 +1873,7 @@
       if (kbState.shiftActive) {
         kbState.shiftActive = false;
         kbShiftKey.classList.remove('active');
-        document.querySelectorAll('#kb-page-qwerty .kb-key[data-char]').forEach(btn => {
-          btn.textContent = btn.dataset.char;
-        });
+        kbQwertyPage.classList.remove('shifted');
       }
     } else {
       payload = key.dataset.send;
@@ -1943,6 +1932,25 @@
     if (key.dataset.alts !== undefined) return;
     e.stopPropagation();
 
+    // Double-tap space → period, long-press space → Tab
+    if (key.classList.contains('kb-key-space')) {
+      const now = Date.now();
+      const gap = now - lastSpaceDown;
+      clearTimeout(spaceLpTimer);
+      if (gap > 100 && gap < 500) {
+        sendData('\x7f. ');
+        lastSpaceDown = 0;
+      } else {
+        sendData(' ');
+        lastSpaceDown = now;
+        spaceLpTimer = setTimeout(() => {
+          sendData('\x7f\x09');
+          lastSpaceDown = 0;
+        }, 500);
+      }
+      return;
+    }
+
     kbDispatch(key);
 
     const payload = key.dataset.char !== undefined
@@ -1992,9 +2000,7 @@
     left = Math.max(8, Math.min(left, window.innerWidth - popupW - 8));
     const bottom = window.innerHeight - rect.top + 6;
 
-    tbPopup.style.left  = left + 'px';
-    tbPopup.style.bottom = bottom + 'px';
-    tbPopup.style.width = popupW + 'px';
+    tbPopup.style.cssText = `left:${left}px;bottom:${bottom}px;width:${popupW}px`;
     tbLpActive = true;
     tbPopup.classList.add('open');
   }
@@ -2007,9 +2013,10 @@
 
   function highlightTbAt(x, y) {
     const el = document.elementFromPoint(x, y);
-    const item = el?.closest('.tp-item');
-    if (tbLpHigh && tbLpHigh !== item) tbLpHigh.classList.remove('highlighted');
-    tbLpHigh = item || null;
+    const item = el?.closest('.tp-item') || null;
+    if (item === tbLpHigh) return;
+    if (tbLpHigh) tbLpHigh.classList.remove('highlighted');
+    tbLpHigh = item;
     if (tbLpHigh) tbLpHigh.classList.add('highlighted');
   }
 
