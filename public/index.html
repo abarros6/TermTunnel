@@ -366,15 +366,6 @@
       margin-bottom: 5px;
       padding: 0 2px;
     }
-    .kb-row-symbols {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      justify-content: flex-start;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .kb-row-symbols::-webkit-scrollbar { display: none; }
-
     .kb-key {
       background: #1c2635;
       border: 1px solid var(--border);
@@ -397,13 +388,22 @@
     }
     .kb-key:active { background: #2a3a52; }
 
-    .kb-row-symbols .kb-key {
-      flex: 0 0 36px;
-    }
     .kb-key-wide  { flex: 0 0 56px; }
     .kb-key-space { flex: 1; max-width: 180px; }
     .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
     .kb-key-shift { flex: 0 0 38px; }
+
+    .kb-key-mode { flex: 0 0 48px; font-size: 11px; color: var(--blue); }
+    .kb-key-mode:active { border-color: var(--blue); color: var(--blue); }
+
+    /* Shift-style action key — used in the #+= / 123 toggle row */
+    .kb-key-sym-nav {
+      flex: 0 0 52px;
+      font-size: 11px;
+      background: #141d28;
+      color: var(--dim);
+    }
+    .kb-key-sym-nav:active { background: #1c2a3a; color: var(--text); }
 
     .kb-mod { color: var(--dim); }
     .kb-mod.active {
@@ -480,22 +480,106 @@
 
     .tb-key {
       background: none;
-      border: 1px solid transparent;
+      border: none;
       color: var(--text);
       font-family: 'JetBrains Mono', monospace;
       font-size: 12px;
-      height: 32px;
-      padding: 0 8px;
-      border-radius: 6px;
+      flex: 1;
+      height: 100%;
+      padding: 0;
       cursor: pointer;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       user-select: none;
-      transition: border-color 0.08s, color 0.08s;
+      transition: color 0.08s, background 0.08s;
     }
-    .tb-key:active { border-color: var(--border); color: var(--green); }
+    .tb-key:active { color: var(--green); background: rgba(0,255,159,0.06); }
     #tb-kb-toggle { font-size: 18px; }
     #tb-kb-toggle.active { color: var(--green); }
+.tb-esc { color: rgba(255, 68, 68, 0.7); }
+    .tb-esc:active { color: var(--red); }
+    #tb-kb-toggle {
+      flex: 2;
+      color: var(--blue);
+      font-size: 20px;
+      background: rgba(92, 207, 230, 0.08);
+      border-left: 1px solid var(--border);
+    }
+    #tb-kb-toggle:active { background: rgba(92, 207, 230, 0.18); }
+    #tb-kb-toggle.active {
+      color: var(--blue);
+      background: rgba(92, 207, 230, 0.16);
+      border-left-color: rgba(92, 207, 230, 0.3);
+    }
+
+    /* ── Toolbar Long-Press Popup ── */
+    #tb-popup {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      z-index: 54;
+      overflow-y: auto;
+      max-height: 60vh;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(6px);
+      transition: opacity 0.12s, transform 0.12s;
+      min-width: 200px;
+    }
+    #tb-popup.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .tp-item {
+      padding: 12px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tp-item:last-child { border-bottom: none; }
+    .tp-item.highlighted { background: rgba(0,255,159,0.1); color: var(--green); }
+
+    /* ── Macro Picker ── */
+    #macro-picker {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: calc(var(--toolbar-h) + var(--kb-actual-h) + 6px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      z-index: 52;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    #macro-picker.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .mp-item {
+      padding: 13px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mp-item:last-child { border-bottom: none; }
+    .mp-item.highlighted {
+      background: rgba(0, 255, 159, 0.1);
+      color: var(--green);
+    }
 
     /* ── Floating Pill ── */
     #kb-pill {
@@ -582,18 +666,6 @@
     <!-- Page 1: QWERTY -->
     <div id="kb-page-qwerty" class="kb-page active">
       <div class="kb-row">
-        <button class="kb-key" data-send="1">1</button>
-        <button class="kb-key" data-send="2">2</button>
-        <button class="kb-key" data-send="3">3</button>
-        <button class="kb-key" data-send="4">4</button>
-        <button class="kb-key" data-send="5">5</button>
-        <button class="kb-key" data-send="6">6</button>
-        <button class="kb-key" data-send="7">7</button>
-        <button class="kb-key" data-send="8">8</button>
-        <button class="kb-key" data-send="9">9</button>
-        <button class="kb-key" data-send="0">0</button>
-      </div>
-      <div class="kb-row">
         <button class="kb-key" data-char="q">q</button>
         <button class="kb-key" data-char="w">w</button>
         <button class="kb-key" data-char="e">e</button>
@@ -617,6 +689,7 @@
         <button class="kb-key" data-char="l">l</button>
       </div>
       <div class="kb-row">
+        <button class="kb-key kb-mod kb-key-shift" id="kb-shift">⇧</button>
         <button class="kb-key" data-char="z">z</button>
         <button class="kb-key" data-char="x">x</button>
         <button class="kb-key" data-char="c">c</button>
@@ -624,71 +697,149 @@
         <button class="kb-key" data-char="b">b</button>
         <button class="kb-key" data-char="n">n</button>
         <button class="kb-key" data-char="m">m</button>
+        <button class="kb-key kb-key-wide" data-send="&#x7f;">⌫</button>
       </div>
-      <div class="kb-row kb-row-symbols">
-        <button class="kb-key" data-send="`">`</button>
-        <button class="kb-key" data-send="~">~</button>
-        <button class="kb-key" data-send="|">|</button>
-        <button class="kb-key" data-send="\">\</button>
-        <button class="kb-key" data-send="/">/</button>
+      <div class="kb-row">
+        <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
+        <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-space" data-send=" "> </button>
+        <button class="kb-key" data-send=".">.</button>
+        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+      </div>
+      <div class="kb-footer">
+        <button id="kb-swap-macros-btn" class="kb-footer-btn">Macros ›</button>
+        <button id="kb-close-btn" class="kb-footer-btn">↓ hide</button>
+      </div>
+    </div>
+
+    <!-- Page 2: Numbers / Common Symbols -->
+    <div id="kb-page-num" class="kb-page">
+      <div class="kb-row">
+        <button class="kb-key" data-send="1">1</button>
+        <button class="kb-key" data-send="2">2</button>
+        <button class="kb-key" data-send="3">3</button>
+        <button class="kb-key" data-send="4">4</button>
+        <button class="kb-key" data-send="5">5</button>
+        <button class="kb-key" data-send="6">6</button>
+        <button class="kb-key" data-send="7">7</button>
+        <button class="kb-key" data-send="8">8</button>
+        <button class="kb-key" data-send="9">9</button>
+        <button class="kb-key" data-send="0">0</button>
+      </div>
+      <div class="kb-row">
         <button class="kb-key" data-send="-">-</button>
-        <button class="kb-key" data-send="_">_</button>
-        <button class="kb-key" data-send="=">=</button>
-        <button class="kb-key" data-send="+">+</button>
+        <button class="kb-key" data-send="/">/</button>
+        <button class="kb-key" data-send=":">:</button>
+        <button class="kb-key" data-send=";">;</button>
+        <button class="kb-key" data-send="(">(</button>
+        <button class="kb-key" data-send=")">)</button>
+        <button class="kb-key" data-send="$">$</button>
+        <button class="kb-key" data-send="&amp;">&amp;</button>
+        <button class="kb-key" data-send="@">@</button>
+        <button class="kb-key" data-send="&quot;">"</button>
+      </div>
+      <!-- shift-style row: #+= nav key on left, delete on right -->
+      <div class="kb-row">
+        <button class="kb-key kb-key-sym-nav" id="kb-sym-btn">#+= </button>
+        <button class="kb-key" data-send=".">.</button>
+        <button class="kb-key" data-send=",">,</button>
+        <button class="kb-key" data-send="?">?</button>
+        <button class="kb-key" data-send="!">!</button>
+        <button class="kb-key" data-send="'">'</button>
+        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;">⌫</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-num">Ctrl</button>
+        <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-space" data-send=" "> </button>
+        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+      </div>
+      <div class="kb-footer">
+        <button id="kb-swap-macros-btn-2" class="kb-footer-btn">Macros ›</button>
+        <button id="kb-close-btn-num" class="kb-footer-btn">↓ hide</button>
+      </div>
+    </div>
+
+    <!-- Page 3: Extended Symbols (#+= page) -->
+    <div id="kb-page-sym" class="kb-page">
+      <div class="kb-row">
         <button class="kb-key" data-send="[">[</button>
         <button class="kb-key" data-send="]">]</button>
         <button class="kb-key" data-send="{">{</button>
         <button class="kb-key" data-send="}">}</button>
-        <button class="kb-key" data-send=";">;</button>
-        <button class="kb-key" data-send=":">:</button>
-        <button class="kb-key" data-send="'">'</button>
-        <button class="kb-key" data-send="&quot;">"</button>
-        <button class="kb-key" data-send=",">,</button>
-        <button class="kb-key" data-send=".">.</button>
-        <button class="kb-key" data-send="?">?</button>
-        <button class="kb-key" data-send="!">!</button>
-        <button class="kb-key" data-send="@">@</button>
         <button class="kb-key" data-send="#">#</button>
-        <button class="kb-key" data-send="$">$</button>
         <button class="kb-key" data-send="%">%</button>
         <button class="kb-key" data-send="^">^</button>
-        <button class="kb-key" data-send="&amp;">&amp;</button>
         <button class="kb-key" data-send="*">*</button>
-        <button class="kb-key" data-send="(">(</button>
-        <button class="kb-key" data-send=")">)</button>
+        <button class="kb-key" data-send="+">+</button>
+        <button class="kb-key" data-send="=">=</button>
       </div>
       <div class="kb-row">
-        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
-        <button class="kb-key kb-mod kb-key-shift" id="kb-shift">⇧</button>
+        <button class="kb-key" data-send="_">_</button>
+        <button class="kb-key" data-send="\">\</button>
+        <button class="kb-key" data-send="|">|</button>
+        <button class="kb-key" data-send="~">~</button>
+        <button class="kb-key" data-send="`">`</button>
+        <button class="kb-key" data-send="<">&lt;</button>
+        <button class="kb-key" data-send=">">&gt;</button>
+        <button class="kb-key" data-send="&amp;">&amp;</button>
+        <button class="kb-key" data-send="'">'</button>
+        <button class="kb-key" data-send="&quot;">"</button>
+      </div>
+      <!-- shift-style row: 123 nav key on left, delete on right -->
+      <div class="kb-row">
+        <button class="kb-key kb-key-sym-nav" id="kb-123-from-sym-btn">123</button>
+        <button class="kb-key" data-send=".">.</button>
+        <button class="kb-key" data-send=",">,</button>
+        <button class="kb-key" data-send="?">?</button>
+        <button class="kb-key" data-send="!">!</button>
+        <button class="kb-key" data-send="-">-</button>
+        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;">⌫</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-sym">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
-        <button class="kb-key kb-key-wide" data-send="&#x7f;">⌫</button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
       <div class="kb-footer">
-        <button id="kb-swap-btn" class="kb-footer-btn">Macros ›</button>
-        <button id="kb-close-btn" class="kb-footer-btn">↓ hide</button>
+        <button id="kb-swap-macros-btn-3" class="kb-footer-btn">Macros ›</button>
+        <button id="kb-close-btn-sym" class="kb-footer-btn">↓ hide</button>
       </div>
     </div>
 
     <!-- Page 2: Macros -->
     <div id="kb-page-macros" class="kb-page">
       <div class="kb-macro-grid">
-        <button class="kb-macro" data-send="cd ..&#x0d;">cd ..</button>
-        <button class="kb-macro" data-send="ls -la&#x0d;">ls -la</button>
-        <button class="kb-macro" data-send="git status&#x0d;">git status</button>
-        <button class="kb-macro" data-send="git add .&#x0d;">git add .</button>
-        <button class="kb-macro" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit</button>
+        <!-- tmux -->
+        <button class="kb-macro" data-send="&#x02;">C-b</button>
+        <button class="kb-macro" data-send="&#x02;c">C-b c</button>
+        <button class="kb-macro" data-send="&#x02;n">C-b n</button>
+        <button class="kb-macro" data-send="&#x02;p">C-b p</button>
+        <button class="kb-macro" data-send="&#x02;[">scroll</button>
+        <button class="kb-macro" data-send="&#x02;d">detach</button>
+        <button class="kb-macro" data-send="&#x02;z">zoom</button>
+        <button class="kb-macro" data-send="q">q (exit)</button>
+        <!-- terminal -->
+        <button class="kb-macro" data-send="&#x03;">^C</button>
+        <button class="kb-macro" data-send="&#x04;">^D</button>
         <button class="kb-macro" data-send="clear&#x0d;">clear</button>
-        <button class="kb-macro" data-send="pwd&#x0d;">pwd</button>
-        <button class="kb-macro" data-send="exit&#x0d;">exit</button>
-        <button class="kb-macro" data-send="npm run dev&#x0d;">npm dev</button>
-        <button class="kb-macro" data-send="npm install&#x0d;">npm i</button>
+        <button class="kb-macro" data-send="cd ..&#x0d;">cd ..</button>
+        <!-- git / nav -->
+        <button class="kb-macro" data-send="ls -la&#x0d;">ls -la</button>
+        <button class="kb-macro" data-send="git status&#x0d;">git st</button>
+        <button class="kb-macro" data-send="git add .&#x0d;">git add .</button>
         <button class="kb-macro" data-send="git diff&#x0d;">git diff</button>
+        <button class="kb-macro" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit</button>
         <button class="kb-macro" data-send="git log --oneline&#x0d;">git log</button>
+        <button class="kb-macro" data-send="pwd&#x0d;">pwd</button>
+        <button class="kb-macro" data-send="npm run dev&#x0d;">npm dev</button>
       </div>
       <div class="kb-footer">
-        <button id="kb-swap-btn-2" class="kb-footer-btn">‹ Keys</button>
+        <button id="kb-swap-macros-back" class="kb-footer-btn">‹ Keys</button>
         <button id="kb-close-btn-2" class="kb-footer-btn">↓ hide</button>
       </div>
     </div>
@@ -697,15 +848,34 @@
 
 </div>
 
+<!-- Toolbar Long-Press Popup -->
+<div id="tb-popup"></div>
+
+<!-- Macro Picker (long-press on ⌨) -->
+<div id="macro-picker">
+  <div class="mp-item" data-send="&#x02;">tmux prefix (Ctrl+B)</div>
+  <div class="mp-item" data-send="&#x02;c">tmux new window</div>
+  <div class="mp-item" data-send="&#x02;n">tmux next window</div>
+  <div class="mp-item" data-send="&#x02;p">tmux prev window</div>
+  <div class="mp-item" data-send="&#x02;[">tmux scroll mode</div>
+  <div class="mp-item" data-send="&#x02;d">tmux detach</div>
+  <div class="mp-item" data-send="git status&#x0d;">git status</div>
+  <div class="mp-item" data-send="git add .&#x0d;">git add .</div>
+  <div class="mp-item" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit -m ""</div>
+  <div class="mp-item" data-send="git diff&#x0d;">git diff</div>
+  <div class="mp-item" data-send="git log --oneline&#x0d;">git log --oneline</div>
+  <div class="mp-item" data-send="ls -la&#x0d;">ls -la</div>
+  <div class="mp-item" data-send="cd ..&#x0d;">cd ..</div>
+  <div class="mp-item" data-send="clear&#x0d;">clear</div>
+</div>
+
 <!-- Keyboard Toolbar -->
 <div id="kb-toolbar">
-  <button class="tb-key" data-send="&#x03;">Ctrl+C</button>
-  <button class="tb-key" data-send="&#x1b;">Esc</button>
-  <button class="tb-key" data-send="&#x09;">Tab</button>
-  <button class="tb-key" data-send="&#x1b;[A">↑</button>
-  <button class="tb-key" data-send="&#x1b;[B">↓</button>
-  <button class="tb-key" data-send="|">|</button>
-  <button class="tb-key" data-send="~">~</button>
+  <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
+  <button class="tb-key" id="tb-up" data-send="&#x1b;[A" data-lp>↑</button>
+  <button class="tb-key" id="tb-down" data-send="&#x1b;[B" data-lp>↓</button>
+  <button class="tb-key" id="tb-left" data-send="&#x1b;[D" data-lp>←</button>
+  <button class="tb-key" id="tb-right" data-send="&#x1b;[C" data-lp>→</button>
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
@@ -1088,9 +1258,12 @@
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
   const kbPill      = document.getElementById('kb-pill');
-  const kbCtrlKey   = document.getElementById('kb-ctrl');
+  const kbCtrlKey    = document.getElementById('kb-ctrl');
+  const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
+  const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
   const kbShiftKey  = document.getElementById('kb-shift');
   const tbKbToggle  = document.getElementById('tb-kb-toggle');
+  const macroPicker = document.getElementById('macro-picker');
 
   const kbState = {
     toolbarOpen: false,
@@ -1134,7 +1307,7 @@
   });
 
   // Close buttons — full collapse
-  ['kb-close-btn', 'kb-close-btn-2'].forEach(id => {
+  ['kb-close-btn', 'kb-close-btn-num', 'kb-close-btn-sym', 'kb-close-btn-2'].forEach(id => {
     document.getElementById(id).addEventListener('pointerdown', (e) => {
       e.stopPropagation();
       kbState.keyboardOpen = false;
@@ -1152,23 +1325,99 @@
     }
   });
 
-  // Page swap
-  document.getElementById('kb-swap-btn').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    document.getElementById('kb-page-qwerty').classList.remove('active');
-    document.getElementById('kb-page-macros').classList.add('active');
+  // Page swap helpers
+  const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
+  function showKbPage(id) {
+    KB_PAGES.forEach(p => document.getElementById(p).classList.toggle('active', p === id));
+  }
+
+  document.getElementById('kb-123-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-num');
   });
-  document.getElementById('kb-swap-btn-2').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    document.getElementById('kb-page-macros').classList.remove('active');
-    document.getElementById('kb-page-qwerty').classList.add('active');
+  document.getElementById('kb-sym-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-sym');
+  });
+  document.getElementById('kb-123-from-sym-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-num');
+  });
+  document.getElementById('kb-abc-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-qwerty');
+  });
+  document.getElementById('kb-abc-from-sym-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-qwerty');
+  });
+  ['kb-swap-macros-btn', 'kb-swap-macros-btn-2', 'kb-swap-macros-btn-3'].forEach(id => {
+    document.getElementById(id).addEventListener('pointerdown', (e) => {
+      e.stopPropagation(); showKbPage('kb-page-macros');
+    });
+  });
+  document.getElementById('kb-swap-macros-back').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-qwerty');
   });
 
-  // Sticky Ctrl
-  kbCtrlKey.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
+  // Sticky Ctrl — syncs all ctrl keys
+  const allCtrlKeys = [kbCtrlKey, kbCtrlNumKey, kbCtrlSymKey];
+  function toggleCtrl() {
     kbState.ctrlActive = !kbState.ctrlActive;
-    kbCtrlKey.classList.toggle('active', kbState.ctrlActive);
+    allCtrlKeys.forEach(k => k.classList.toggle('active', kbState.ctrlActive));
+  }
+  function clearCtrl() {
+    kbState.ctrlActive = false;
+    allCtrlKeys.forEach(k => k.classList.remove('active'));
+  }
+
+  allCtrlKeys.forEach(k => k.addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleCtrl(); }));
+
+  // ── Long-press macro picker on ⌨ ─────────────────────────
+  let lpTimer = null;
+  let lpActive = false;
+  let lpHighlighted = null;
+
+  function showMacroPicker() {
+    lpActive = true;
+    macroPicker.classList.add('open');
+  }
+  function hideMacroPicker() {
+    lpActive = false;
+    macroPicker.classList.remove('open');
+    if (lpHighlighted) {
+      lpHighlighted.classList.remove('highlighted');
+      lpHighlighted = null;
+    }
+  }
+  function highlightAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const item = el?.closest('.mp-item');
+    if (lpHighlighted && lpHighlighted !== item) {
+      lpHighlighted.classList.remove('highlighted');
+    }
+    lpHighlighted = item || null;
+    if (lpHighlighted) lpHighlighted.classList.add('highlighted');
+  }
+
+  tbKbToggle.addEventListener('touchstart', (e) => {
+    lpTimer = setTimeout(() => showMacroPicker(), 400);
+  }, { passive: true });
+
+  tbKbToggle.addEventListener('touchmove', (e) => {
+    if (!lpActive) return;
+    const t = e.touches[0];
+    highlightAt(t.clientX, t.clientY);
+  }, { passive: true });
+
+  tbKbToggle.addEventListener('touchend', (e) => {
+    clearTimeout(lpTimer);
+    if (lpActive) {
+      const payload = lpHighlighted?.dataset.send;
+      hideMacroPicker();
+      if (payload) sendData(payload);
+    }
+    // Short tap (no picker shown) — handled by existing pointerdown on tbKbToggle
+  });
+
+  tbKbToggle.addEventListener('touchcancel', () => {
+    clearTimeout(lpTimer);
+    hideMacroPicker();
   });
 
   // Sticky Shift — also updates key labels
@@ -1186,7 +1435,7 @@
   // Key dispatch — keyboard panel (event delegation)
   kbKeyboard.addEventListener('pointerdown', (e) => {
     const key = e.target.closest('[data-send],[data-char]');
-    if (!key || key === kbCtrlKey || key === kbShiftKey) return;
+    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
     e.stopPropagation();
 
     let payload;
@@ -1197,8 +1446,7 @@
 
       if (kbState.ctrlActive) {
         payload = String.fromCharCode(ch.toLowerCase().charCodeAt(0) - 96);
-        kbState.ctrlActive = false;
-        kbCtrlKey.classList.remove('active');
+        clearCtrl();
       } else {
         payload = ch;
       }
@@ -1217,12 +1465,114 @@
     sendData(payload);
   });
 
-  // Toolbar key dispatch (simple passthrough, no ctrl/shift)
+  // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
   kbToolbar.addEventListener('pointerdown', (e) => {
     const key = e.target.closest('[data-send]');
     if (!key || key === tbKbToggle) return;
+    if (key.hasAttribute('data-lp')) return;
     e.stopPropagation();
     sendData(key.dataset.send);
+  });
+
+  // ── Toolbar long-press system ─────────────────────────────
+  const tbPopup   = document.getElementById('tb-popup');
+  let tbLpTimer   = null;
+  let tbLpActive  = false;
+  let tbLpItems   = [];
+  let tbLpHigh    = null;
+
+  const TB_MENUS = {
+    'tb-esc': [
+      { label: '^\\  SIGQUIT',       send: '\x1c' },
+      { label: 'Alt+.  last arg',    send: '\x1b.' },
+    ],
+    'tb-up': [
+      { label: 'Page Up',            send: '\x1b[5~' },
+      { label: 'C-b [  tmux scroll', send: '\x02[' },
+    ],
+    'tb-down': [
+      { label: 'Page Down',          send: '\x1b[6~' },
+      { label: 'q  exit scroll',     send: 'q' },
+    ],
+    'tb-left': [
+      { label: 'Home',               send: '\x1b[H' },
+      { label: 'Alt+B  word ←',      send: '\x1bb' },
+    ],
+    'tb-right': [
+      { label: 'End',                send: '\x1b[F' },
+      { label: 'Alt+F  word →',      send: '\x1bf' },
+    ],
+  };
+
+  function openTbPopup(btn, items) {
+    tbLpItems = items;
+    tbPopup.innerHTML = items.map((item, i) =>
+      `<div class="tp-item" data-idx="${i}">${item.label}</div>`
+    ).join('');
+
+    const rect = btn.getBoundingClientRect();
+    const popupW = 200;
+    let left = rect.left + rect.width / 2 - popupW / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - popupW - 8));
+    const bottom = window.innerHeight - rect.top + 6;
+
+    tbPopup.style.left  = left + 'px';
+    tbPopup.style.bottom = bottom + 'px';
+    tbPopup.style.width = popupW + 'px';
+    tbLpActive = true;
+    tbPopup.classList.add('open');
+  }
+
+  function closeTbPopup() {
+    tbLpActive = false;
+    tbPopup.classList.remove('open');
+    if (tbLpHigh) { tbLpHigh.classList.remove('highlighted'); tbLpHigh = null; }
+  }
+
+  function highlightTbAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const item = el?.closest('.tp-item');
+    if (tbLpHigh && tbLpHigh !== item) tbLpHigh.classList.remove('highlighted');
+    tbLpHigh = item || null;
+    if (tbLpHigh) tbLpHigh.classList.add('highlighted');
+  }
+
+  // Wire up long-press on each data-lp toolbar button
+  kbToolbar.querySelectorAll('[data-lp]').forEach(btn => {
+    btn.addEventListener('touchstart', (e) => {
+      tbLpTimer = setTimeout(() => {
+        const menu = TB_MENUS[btn.id];
+        if (menu) openTbPopup(btn, menu);
+      }, 400);
+    }, { passive: true });
+
+    btn.addEventListener('touchmove', (e) => {
+      if (!tbLpActive) return;
+      const t = e.touches[0];
+      highlightTbAt(t.clientX, t.clientY);
+    }, { passive: true });
+
+    btn.addEventListener('touchend', (e) => {
+      clearTimeout(tbLpTimer);
+      if (tbLpActive) {
+        const payload = tbLpItems[parseInt(tbLpHigh?.dataset.idx, 10)]?.send;
+        closeTbPopup();
+        if (payload !== undefined) sendData(payload);
+      } else {
+        // Short tap — send the button's own payload
+        sendData(btn.dataset.send);
+      }
+    });
+
+    btn.addEventListener('touchcancel', () => {
+      clearTimeout(tbLpTimer);
+      closeTbPopup();
+    });
+  });
+
+  // Tap outside closes the popup
+  document.addEventListener('pointerdown', (e) => {
+    if (tbLpActive && !tbPopup.contains(e.target)) closeTbPopup();
   });
 })();
 </script>
