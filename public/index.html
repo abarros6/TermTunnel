@@ -471,8 +471,9 @@
       color: #000;
     }
 
-    .kb-key-wide  { flex: 0 0 56px; }
-    .kb-key-space { flex: 1; max-width: 180px; }
+    .kb-key-wide   { flex: 0 0 56px; }
+    .kb-key-period { flex: 0 0 42px; }
+    .kb-key-space  { flex: 1; }
     .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
     .kb-key-shift { flex: 0 0 38px; }
 
@@ -847,6 +848,7 @@
         <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-dpad" id="kb-dpad-toggle">⊕</button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
@@ -893,6 +895,7 @@
         <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-num">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
@@ -938,6 +941,7 @@
         <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-sym">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
@@ -1799,7 +1803,6 @@
   function kbStopRepeat() {
     clearTimeout(kbRepeatDelay);
     clearInterval(kbRepeatInterval);
-    clearTimeout(spaceLpTimer);
     kbRepeatDelay = kbRepeatInterval = null;
   }
   document.addEventListener('pointerup',     kbStopRepeat);
@@ -1810,8 +1813,6 @@
   let kbLpTimer    = null;
   let kbLpActive   = false;
   let kbLpKey      = null;
-  let spaceLpTimer  = null;
-  let lastSpaceDown = 0;
   let kbLpAlts     = [];
   let kbLpHighIdx  = -1;
 
@@ -1941,27 +1942,6 @@
     // Alt-capable keys are dispatched via touchend instead
     if (key.dataset.alts !== undefined) return;
     e.stopPropagation();
-
-    // Space: double-tap → ". ", long-press → Tab
-    if (key.classList.contains('kb-key-space')) {
-      const now = Date.now();
-      const gap = now - lastSpaceDown;
-      clearTimeout(spaceLpTimer);
-      if (gap > 100 && gap < 500) {
-        sendData('\x7f');
-        sendData('. ');
-        lastSpaceDown = 0;
-      } else {
-        sendData(' ');
-        lastSpaceDown = now;
-        spaceLpTimer = setTimeout(() => {
-          sendData('\x7f');
-          sendData('\x09');
-          lastSpaceDown = 0;
-        }, 500);
-      }
-      return;
-    }
 
     kbDispatch(key);
 
