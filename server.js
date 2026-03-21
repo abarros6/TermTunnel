@@ -24,19 +24,34 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
-app.get('/api/peers', (_req, res) => {
+async function probeTermTunnel(ip, port = PORT) {
+  try {
+    const r = await fetch(`http://${ip}:${port}/health`, {
+      signal: AbortSignal.timeout(600),
+    });
+    return r.ok;
+  } catch {
+    return false;
+  }
+}
+
+app.get('/api/peers', async (_req, res) => {
   try {
     const raw = execSync('tailscale status --json 2>/dev/null').toString();
     const status = JSON.parse(raw);
-    const peers = [];
+    const candidates = [];
     if (status.Self) {
-      peers.push({ name: status.Self.HostName, ip: status.Self.TailscaleIPs?.[0], self: true });
+      candidates.push({ name: status.Self.HostName, ip: status.Self.TailscaleIPs?.[0], self: true });
     }
     for (const peer of Object.values(status.Peer || {})) {
       if (peer.Online) {
-        peers.push({ name: peer.HostName, ip: peer.TailscaleIPs?.[0], self: false });
+        candidates.push({ name: peer.HostName, ip: peer.TailscaleIPs?.[0], self: false });
       }
     }
+    const results = await Promise.allSettled(
+      candidates.map(p => probeTermTunnel(p.ip))
+    );
+    const peers = candidates.filter((_, i) => results[i].value === true);
     res.json({ peers });
   } catch {
     res.json({ peers: [] });
