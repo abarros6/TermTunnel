@@ -1449,10 +1449,27 @@
     floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active', 'flash'));
   }
 
+  let dpadLastCenterTap = 0;
+
   floatDpad.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.touches[0];
-    dpadActivate(dpadGetDir(t.clientX, t.clientY));
+    const dir = dpadGetDir(t.clientX, t.clientY);
+    if (!dir) {
+      // Centre tap — check for double-tap
+      const now = Date.now();
+      if (now - dpadLastCenterTap < 350) {
+        dpadLastCenterTap = 0;
+        kbState.dpadOpen = false;
+        floatDpad.classList.remove('open');
+        document.getElementById('kb-dpad-toggle').classList.remove('active');
+      } else {
+        dpadLastCenterTap = now;
+      }
+      return;
+    }
+    dpadLastCenterTap = 0;
+    dpadActivate(dir);
   }, { passive: false });
 
   floatDpad.addEventListener('touchmove', (e) => {
