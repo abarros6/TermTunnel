@@ -243,6 +243,41 @@
       text-align: center;
     }
 
+    .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 32px 10px 12px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a8f' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+    .field select:focus { border-color: var(--green); }
+    .field select option { background: #141d28; color: var(--text); }
+
+    .manual-link {
+      display: block;
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 5px;
+      text-align: right;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .manual-link:active { color: var(--text); }
+
+    .d-none { display: none !important; }
+
     /* ── Settings Panel ── */
     #settings-backdrop {
       position: fixed;
@@ -694,19 +729,21 @@
         <h2>TERMTUNNEL</h2>
         <p>WebSocket → SSH bridge</p>
 
-        <div class="field-row">
-          <div class="field">
-            <label>Host</label>
-            <input type="text" id="inp-host" placeholder="192.168.1.x" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          </div>
-          <div class="field">
-            <label>Port</label>
-            <input type="number" id="inp-port" placeholder="3000" inputmode="numeric">
-          </div>
+        <div class="field">
+          <label>Host</label>
+          <select id="inp-host-select" class="d-none">
+            <option value="">Select device…</option>
+          </select>
+          <input type="text" id="inp-host" placeholder="100.x.x.x" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <span id="toggle-manual" class="manual-link">choose from list</span>
         </div>
         <div class="field">
-          <label>Auth Token</label>
-          <input type="password" id="inp-token" placeholder="paste token here" autocomplete="off">
+          <label>Port</label>
+          <input type="number" id="inp-port" placeholder="3000" inputmode="numeric">
+        </div>
+        <div class="field d-none" id="field-session">
+          <label>Session</label>
+          <select id="inp-session"></select>
         </div>
 
         <button id="connect-btn">CONNECT</button>
@@ -1100,12 +1137,12 @@
   }
 
   // ── WebSocket connection ──────────────────────────────────
-  function connect(host, port, token) {
+  function connect(host, port, session = 'termtunnel') {
     clearTimeout(reconnectTimer);
     if (ws) { ws.onclose = null; ws.close(); ws = null; }
 
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${proto}//${host}:${port}/ws${token ? '?token=' + encodeURIComponent(token) : ''}`;
+    const url = `${proto}//${host}:${port}/ws?session=${encodeURIComponent(session)}`;
 
     setStatus('connecting');
     setError('');
@@ -1152,14 +1189,9 @@
       setError('Connection failed');
     };
 
-    ws.onclose = (ev) => {
+    ws.onclose = () => {
       setStatus('error');
-      if (ev.code === 4001) {
-        setError('Invalid auth token');
-        showOverlay();
-      } else {
-        scheduleReconnect();
-      }
+      scheduleReconnect();
     };
   }
 
@@ -1178,7 +1210,7 @@
     setStatus('connecting');
     reconnectTimer = setTimeout(() => {
       const conn = loadConn();
-      if (conn.host && conn.port) connect(conn.host, conn.port, conn.token || '');
+      if (conn.host && conn.port) connect(conn.host, conn.port, conn.session || 'termtunnel');
     }, delay);
   }
 
@@ -1193,7 +1225,7 @@
         const conn = loadConn();
         if (conn.host && conn.port) {
           term.writeln('\r\n\x1b[33m[reconnect] Reconnecting…\x1b[0m');
-          connect(conn.host, conn.port, conn.token || '');
+          connect(conn.host, conn.port, conn.session || 'termtunnel');
         }
       }
     }
@@ -1210,23 +1242,120 @@
     document.getElementById('connect-error').textContent = msg;
   }
 
+  // ── Device storage ────────────────────────────────────────
+  const DEVICES_KEY = 'termtunnel_devices';
+  function loadDevices() {
+    try { return JSON.parse(localStorage.getItem(DEVICES_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function saveDevice(ip, data) {
+    const d = loadDevices();
+    d[ip] = { ...d[ip], ...data };
+    localStorage.setItem(DEVICES_KEY, JSON.stringify(d));
+  }
+
+  // ── Peer / session discovery ──────────────────────────────
+  const selHost = document.getElementById('inp-host-select');
+  const inpHost = document.getElementById('inp-host');
+  const fieldSession = document.getElementById('field-session');
+  const selSession = document.getElementById('inp-session');
+  const toggleManualBtn = document.getElementById('toggle-manual');
+  let manualMode = true;
+
+  function getHost() { return manualMode ? inpHost.value.trim() : selHost.value; }
+
+  async function fetchPeers(host, port) {
+    try {
+      const r = await fetch(`http://${host}:${port}/api/peers`);
+      if (!r.ok) return [];
+      return (await r.json()).peers || [];
+    } catch { return []; }
+  }
+
+  async function refreshSessions() {
+    const host = getHost();
+    const port = document.getElementById('inp-port').value.trim() || '3000';
+    if (!host) { fieldSession.classList.add('d-none'); return; }
+    try {
+      const r = await fetch(`http://${host}:${port}/api/sessions`);
+      if (!r.ok) { fieldSession.classList.add('d-none'); return; }
+      const { sessions } = await r.json();
+      if (!sessions || sessions.length === 0) { fieldSession.classList.add('d-none'); return; }
+      const saved = loadConn();
+      selSession.innerHTML = sessions.map(s =>
+        `<option value="${s}">${s}</option>`
+      ).join('');
+      if (saved.session && sessions.includes(saved.session)) selSession.value = saved.session;
+      fieldSession.classList.remove('d-none');
+    } catch { fieldSession.classList.add('d-none'); }
+  }
+
+  function populatePeers(peers, savedHost) {
+    selHost.innerHTML = '<option value="">Select device…</option>' +
+      peers.filter(p => p.ip).map(p =>
+        `<option value="${p.ip}">${p.name ? p.name + '  (' + p.ip + ')' : p.ip}</option>`
+      ).join('');
+    if (savedHost) selHost.value = savedHost;
+    // switch to select mode
+    selHost.classList.remove('d-none');
+    inpHost.classList.add('d-none');
+    toggleManualBtn.textContent = 'enter IP manually';
+    manualMode = false;
+  }
+
+  toggleManualBtn.addEventListener('click', () => {
+    manualMode = !manualMode;
+    if (manualMode) {
+      selHost.classList.add('d-none');
+      inpHost.classList.remove('d-none');
+      toggleManualBtn.textContent = 'choose from list';
+      inpHost.focus();
+    } else {
+      selHost.classList.remove('d-none');
+      inpHost.classList.add('d-none');
+      toggleManualBtn.textContent = 'enter IP manually';
+    }
+  });
+
+  selHost.addEventListener('change', () => {
+    const ip = selHost.value;
+    if (!ip) return;
+    const saved = loadDevices()[ip];
+    if (saved?.port) document.getElementById('inp-port').value = saved.port;
+    refreshSessions();
+  });
+
   // ── Connect form ──────────────────────────────────────────
   const conn = loadConn();
-  if (conn.host) document.getElementById('inp-host').value = conn.host;
   if (conn.port) document.getElementById('inp-port').value = conn.port;
-  if (conn.token) document.getElementById('inp-token').value = conn.token;
+
+  // Try to populate peer list from last known host
+  if (conn.host) {
+    const port = conn.port || '3000';
+    fetchPeers(conn.host, port).then(peers => {
+      if (peers.length > 0) {
+        populatePeers(peers, conn.host);
+        refreshSessions();
+      } else {
+        inpHost.value = conn.host;
+      }
+    });
+  }
 
   document.getElementById('connect-btn').addEventListener('click', () => {
-    const host = document.getElementById('inp-host').value.trim();
+    const host = getHost();
     const port = document.getElementById('inp-port').value.trim() || '3000';
-    const token = document.getElementById('inp-token').value.trim();
+    const session = fieldSession.classList.contains('d-none')
+      ? 'termtunnel'
+      : (selSession.value || 'termtunnel');
     if (!host) { setError('Host is required'); return; }
-    saveConn({ host, port, token });
-    connect(host, port, token);
+    saveConn({ host, port, session });
+    saveDevice(host, { port });
+    connect(host, port, session);
   });
 
   // Enter key submits form
-  ['inp-host', 'inp-port', 'inp-token'].forEach((id) => {
+  ['inp-host', 'inp-port'].forEach((id) => {
     document.getElementById(id).addEventListener('keydown', (e) => {
       if (e.key === 'Enter') document.getElementById('connect-btn').click();
     });
@@ -1234,7 +1363,7 @@
 
   // Auto-connect if saved config exists
   if (conn.host && conn.port) {
-    setTimeout(() => connect(conn.host, conn.port, conn.token || ''), 300);
+    setTimeout(() => connect(conn.host, conn.port, conn.session || 'termtunnel'), 300);
   }
 
   // ── Reconnect button ──────────────────────────────────────
@@ -1242,7 +1371,7 @@
     reconnectAttempts = 0;
     const c = loadConn();
     if (c.host && c.port) {
-      connect(c.host, c.port, c.token || '');
+      connect(c.host, c.port, c.session || 'termtunnel');
     } else {
       showOverlay();
     }

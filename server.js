@@ -10,7 +10,6 @@ import pty from 'node-pty';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const PORT = process.env.PORT || 3000;
-const AUTH_TOKEN = process.env.AUTH_TOKEN;
 const SHELL = process.env.SHELL || '/bin/zsh';
 
 const TMUX = (() => {
@@ -25,18 +24,41 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+app.get('/api/peers', (_req, res) => {
+  try {
+    const raw = execSync('tailscale status --json 2>/dev/null').toString();
+    const status = JSON.parse(raw);
+    const peers = [];
+    if (status.Self) {
+      peers.push({ name: status.Self.HostName, ip: status.Self.TailscaleIPs?.[0], self: true });
+    }
+    for (const peer of Object.values(status.Peer || {})) {
+      if (peer.Online) {
+        peers.push({ name: peer.HostName, ip: peer.TailscaleIPs?.[0], self: false });
+      }
+    }
+    res.json({ peers });
+  } catch {
+    res.json({ peers: [] });
+  }
+});
+
+app.get('/api/sessions', (_req, res) => {
+  if (!TMUX) return res.json({ sessions: [] });
+  try {
+    const out = execSync(`${TMUX} list-sessions -F "#{session_name}" 2>/dev/null`).toString().trim();
+    res.json({ sessions: out ? out.split('\n').filter(Boolean) : [] });
+  } catch {
+    res.json({ sessions: [] });
+  }
+});
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
 wss.on('connection', (ws, req) => {
   const url = new URL(req.url, `http://localhost`);
-  const token = url.searchParams.get('token');
-
-  if (AUTH_TOKEN && token !== AUTH_TOKEN) {
-    console.log(`[WS] Rejected connection — invalid token from ${req.socket.remoteAddress}`);
-    ws.close(4001, 'Unauthorized');
-    return;
-  }
+  const sessionName = url.searchParams.get('session') || 'termtunnel';
 
   console.log(`[WS] Client connected from ${req.socket.remoteAddress}`);
 
@@ -54,7 +76,7 @@ wss.on('connection', (ws, req) => {
 
   // Attach to (or create) persistent tmux session
   if (TMUX) {
-    ptyProcess.write(`exec ${TMUX} new-session -A -s termtunnel -e TERMTUNNEL=1\r`);
+    ptyProcess.write(`exec ${TMUX} new-session -A -s ${sessionName} -e TERMTUNNEL=1\r`);
   }
 
   send({ type: 'status', data: 'connected' });
@@ -106,7 +128,6 @@ wss.on('connection', (ws, req) => {
 server.listen(PORT, () => {
   console.log(`[TermTunnel] Server listening on http://localhost:${PORT}`);
   console.log(`[TermTunnel] Shell: ${SHELL}`);
-  console.log(`[TermTunnel] Auth token: ${AUTH_TOKEN ? AUTH_TOKEN.slice(0, 8) + '...' : '(none — open access)'}`);
   console.log(`[TermTunnel] Session persistence: ${TMUX ? `tmux at ${TMUX}` : 'none (tmux not found)'}`);
 });
 
