@@ -642,16 +642,21 @@
     .fdp-arrow {
       position: absolute;
       color: var(--dim);
-      font-size: 20px;
+      font-size: 22px;
       line-height: 1;
       pointer-events: none;
-      transition: color 0.06s;
+      transition: color 0.08s, transform 0.08s;
     }
-    .fdp-arrow.active { color: var(--blue); }
-    .fdp-up    { top: 10px;  left: 50%; transform: translateX(-50%); }
-    .fdp-down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
-    .fdp-left  { left: 10px; top: 50%; transform: translateY(-50%); }
-    .fdp-right { right: 10px; top: 50%; transform: translateY(-50%); }
+    .fdp-arrow.active { color: #3a7aff; }
+    @keyframes fdp-flash {
+      0%   { color: #fff; transform: scale(1.5); }
+      100% { color: #3a7aff; transform: scale(1); }
+    }
+    .fdp-arrow.flash { animation: fdp-flash 0.18s ease-out forwards; }
+    .fdp-up    { top: 8px;    left: 0; right: 0; text-align: center; }
+    .fdp-down  { bottom: 8px; left: 0; right: 0; text-align: center; }
+    .fdp-left  { left: 8px;  top: 0; bottom: 0; display: flex; align-items: center; }
+    .fdp-right { right: 8px; top: 0; bottom: 0; display: flex; align-items: center; }
     .fdp-dot   {
       position: absolute;
       top: 50%; left: 50%;
@@ -1384,35 +1389,60 @@
   });
 
   // ── Floating D-Pad — unified drag surface ────────────────
-  const DPAD_KEYS = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
-  const DPAD_DEAD = 14; // px dead zone radius from center
-  const DPAD_REPEAT = 80; // ms between repeats while held
-  let dpadDir = null;
-  let dpadRepeat = null;
+  const DPAD_KEYS  = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+  const DPAD_DEAD  = 16;  // px dead zone from center
+  const DPAD_DELAY = 320; // ms before repeat starts
+  const DPAD_RATE  = 180; // ms between repeats
+  let dpadDir     = null;
+  let dpadDelay   = null;
+  let dpadRepeat  = null;
 
   function dpadGetDir(x, y) {
     const rect = floatDpad.getBoundingClientRect();
-    const dx = x - (rect.left + rect.width / 2);
+    const dx = x - (rect.left + rect.width  / 2);
     const dy = y - (rect.top  + rect.height / 2);
     if (Math.abs(dx) < DPAD_DEAD && Math.abs(dy) < DPAD_DEAD) return null;
     return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
   }
 
+  function dpadFlash(dir) {
+    const el = floatDpad.querySelector(`.fdp-${dir}`);
+    if (!el) return;
+    el.classList.remove('flash');
+    void el.offsetWidth; // reflow to restart animation
+    el.classList.add('flash');
+  }
+
+  function dpadSend(dir) {
+    sendData(DPAD_KEYS[dir]);
+    dpadFlash(dir);
+  }
+
+  function dpadClearTimers() {
+    clearTimeout(dpadDelay);
+    clearInterval(dpadRepeat);
+    dpadDelay = dpadRepeat = null;
+  }
+
   function dpadActivate(dir) {
     if (dir === dpadDir) return;
+    dpadClearTimers();
     dpadDir = dir;
-    clearInterval(dpadRepeat);
-    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.toggle('active', a.classList.contains(`fdp-${dir}`)));
+    floatDpad.querySelectorAll('.fdp-arrow').forEach(a =>
+      a.classList.toggle('active', a.classList.contains(`fdp-${dir}`))
+    );
     if (dir) {
-      sendData(DPAD_KEYS[dir]);
-      dpadRepeat = setInterval(() => sendData(DPAD_KEYS[dir]), DPAD_REPEAT);
+      dpadSend(dir);
+      dpadDelay = setTimeout(() => {
+        dpadRepeat = setInterval(() => dpadSend(dir), DPAD_RATE);
+      }, DPAD_DELAY);
     }
   }
 
   function dpadStop() {
-    clearInterval(dpadRepeat);
+    dpadClearTimers();
     dpadDir = null;
-    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active'));
+    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active', 'flash'));
   }
 
   floatDpad.addEventListener('touchstart', (e) => {
