@@ -753,7 +753,7 @@
         <button class="kb-key" data-char="b">b</button>
         <button class="kb-key" data-char="n">n</button>
         <button class="kb-key" data-char="m">m</button>
-        <button class="kb-key kb-key-wide" data-send="&#x7f;">⌫</button>
+        <button class="kb-key kb-key-wide" data-send="&#x7f;" data-repeat>⌫</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
@@ -802,7 +802,7 @@
         <button class="kb-key" data-send="?">?</button>
         <button class="kb-key" data-send="!">!</button>
         <button class="kb-key" data-send="'">'</button>
-        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;">⌫</button>
+        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;" data-repeat>⌫</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
@@ -850,7 +850,7 @@
         <button class="kb-key" data-send="?">?</button>
         <button class="kb-key" data-send="!">!</button>
         <button class="kb-key" data-send="-">-</button>
-        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;">⌫</button>
+        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;" data-repeat>⌫</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
@@ -1571,6 +1571,17 @@
     });
   });
 
+  // Key repeat state (for hold-to-repeat keys like ⌫)
+  let kbRepeatDelay = null;
+  let kbRepeatInterval = null;
+  function kbStopRepeat() {
+    clearTimeout(kbRepeatDelay);
+    clearInterval(kbRepeatInterval);
+    kbRepeatDelay = kbRepeatInterval = null;
+  }
+  document.addEventListener('pointerup',     kbStopRepeat);
+  document.addEventListener('pointercancel', kbStopRepeat);
+
   // Key dispatch — keyboard panel (event delegation)
   kbKeyboard.addEventListener('pointerdown', (e) => {
     const key = e.target.closest('[data-send],[data-char]');
@@ -1602,6 +1613,13 @@
     }
 
     sendData(payload);
+
+    if (key.hasAttribute('data-repeat')) {
+      kbStopRepeat();
+      kbRepeatDelay = setTimeout(() => {
+        kbRepeatInterval = setInterval(() => sendData(payload), 80);
+      }, 320);
+    }
   });
 
   // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
