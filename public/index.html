@@ -388,9 +388,9 @@
       overflow: hidden;
       max-height: 0;
       transition: max-height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
-      padding-bottom: env(safe-area-inset-bottom);
+      padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
     }
-    #kb-keyboard.open { max-height: 340px; }
+    #kb-keyboard.open { max-height: 370px; }
 
     .kb-page { display: none; padding: 6px 4px 0; }
     .kb-page.active { display: block; }
@@ -534,6 +534,16 @@
     #tb-kb-toggle.active { color: var(--green); }
 .tb-esc { color: rgba(255, 68, 68, 0.7); }
     .tb-esc:active { color: var(--red); }
+    #tb-macros {
+      flex: 1;
+      color: var(--dim);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      border-left: 1px solid var(--border);
+    }
+    #tb-macros.active { color: var(--green); }
+    #tb-macros:active { color: var(--green); background: rgba(0,255,159,0.06); }
+
     #tb-kb-toggle {
       flex: 2;
       color: var(--blue);
@@ -794,9 +804,6 @@
         <button class="kb-key kb-key-dpad" id="kb-dpad-toggle">⊕</button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
-      <div class="kb-footer">
-        <button id="kb-swap-macros-btn" class="kb-footer-btn">Macros ›</button>
-      </div>
     </div>
 
     <!-- Page 2: Numbers / Common Symbols -->
@@ -841,9 +848,6 @@
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
-      </div>
-      <div class="kb-footer">
-        <button id="kb-swap-macros-btn-2" class="kb-footer-btn">Macros ›</button>
       </div>
     </div>
 
@@ -890,12 +894,9 @@
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
-      <div class="kb-footer">
-        <button id="kb-swap-macros-btn-3" class="kb-footer-btn">Macros ›</button>
-      </div>
     </div>
 
-    <!-- Page 2: Macros -->
+    <!-- Page 4: Macros -->
     <div id="kb-page-macros" class="kb-page">
       <div class="kb-macro-grid">
         <!-- tmux -->
@@ -921,9 +922,6 @@
         <button class="kb-macro" data-send="git log --oneline&#x0d;">git log</button>
         <button class="kb-macro" data-send="pwd&#x0d;">pwd</button>
         <button class="kb-macro" data-send="npm run dev&#x0d;">npm dev</button>
-      </div>
-      <div class="kb-footer">
-        <button id="kb-swap-macros-back" class="kb-footer-btn">‹ Keys</button>
       </div>
     </div>
 
@@ -955,6 +953,7 @@
 <!-- Keyboard Toolbar -->
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
+  <button class="tb-key" id="tb-macros">fn</button>
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
@@ -1641,6 +1640,7 @@
   const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
   function showKbPage(id) {
     KB_PAGES.forEach(p => document.getElementById(p).classList.toggle('active', p === id));
+    document.getElementById('tb-macros').classList.toggle('active', id === 'kb-page-macros');
   }
 
   document.getElementById('kb-123-btn').addEventListener('pointerdown', (e) => {
@@ -1658,13 +1658,12 @@
   document.getElementById('kb-abc-from-sym-btn').addEventListener('pointerdown', (e) => {
     e.stopPropagation(); showKbPage('kb-page-qwerty');
   });
-  ['kb-swap-macros-btn', 'kb-swap-macros-btn-2', 'kb-swap-macros-btn-3'].forEach(id => {
-    document.getElementById(id).addEventListener('pointerdown', (e) => {
-      e.stopPropagation(); showKbPage('kb-page-macros');
-    });
-  });
-  document.getElementById('kb-swap-macros-back').addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); showKbPage('kb-page-qwerty');
+  const tbMacros = document.getElementById('tb-macros');
+  tbMacros.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    const onMacros = document.getElementById('kb-page-macros').classList.contains('active');
+    showKbPage(onMacros ? 'kb-page-qwerty' : 'kb-page-macros');
+    tbMacros.classList.toggle('active', !onMacros);
   });
 
   // Sticky Ctrl — syncs all ctrl keys
