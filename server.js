@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import pty from 'node-pty';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -109,3 +109,19 @@ server.listen(PORT, () => {
   console.log(`[TermTunnel] Auth token: ${AUTH_TOKEN ? AUTH_TOKEN.slice(0, 8) + '...' : '(none — open access)'}`);
   console.log(`[TermTunnel] Session persistence: ${TMUX ? `tmux at ${TMUX}` : 'none (tmux not found)'}`);
 });
+
+function checkForUpdates() {
+  try {
+    const before = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim();
+    execFileSync('git', ['pull', '--quiet'], { cwd: __dirname });
+    const after = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim();
+    if (before !== after) {
+      console.log('[AutoUpdate] New version pulled — restarting…');
+      process.exit(0);
+    }
+  } catch (err) {
+    console.error('[AutoUpdate] git pull failed:', err.message);
+  }
+}
+
+setInterval(checkForUpdates, 15 * 60 * 1000);
