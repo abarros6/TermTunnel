@@ -618,17 +618,17 @@
       position: fixed;
       bottom: calc(var(--toolbar-h) + 6px);
       right: 10px;
-      display: grid;
-      grid-template-columns: repeat(3, 36px);
-      grid-template-rows: repeat(3, 36px);
-      gap: 3px;
+      width: 116px;
+      height: 116px;
       z-index: 55;
       background: rgba(14, 22, 32, 0.96);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 7px;
+      border-radius: 14px;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.15s, transform 0.15s;
@@ -639,48 +639,30 @@
       pointer-events: auto;
       transform: translateY(0);
     }
-    .fdp-btn {
-      background: #1c2a3a;
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 16px;
-      padding: 0;
-      cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 4px;
-      transition: background 0.06s, color 0.06s, border-color 0.06s;
-    }
-    .fdp-btn:active,
-    .fdp-btn.pressed {
-      background: var(--blue);
-      border-color: var(--blue);
-      color: #000;
-    }
-    .fdp-up    { grid-column: 2; grid-row: 1; }
-    .fdp-left  { grid-column: 1; grid-row: 2; }
-    .fdp-hide  {
-      grid-column: 2; grid-row: 2;
-      background: #111820;
-      border: 1px solid #1a2535;
-      border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
+    .fdp-arrow {
+      position: absolute;
       color: var(--dim);
-      font-size: 11px;
-      cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      transition: background 0.06s, color 0.06s;
+      font-size: 20px;
+      line-height: 1;
+      pointer-events: none;
+      transition: color 0.06s;
     }
-    .fdp-hide:active { background: rgba(255,68,68,0.2); color: var(--red); }
+    .fdp-arrow.active { color: var(--blue); }
+    .fdp-up    { top: 10px;  left: 50%; transform: translateX(-50%); }
+    .fdp-down  { bottom: 10px; left: 50%; transform: translateX(-50%); }
+    .fdp-left  { left: 10px; top: 50%; transform: translateY(-50%); }
+    .fdp-right { right: 10px; top: 50%; transform: translateY(-50%); }
+    .fdp-dot   {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      pointer-events: none;
+    }
     .kb-key-dpad { flex: 0 0 36px; font-size: 11px; color: var(--blue); }
     .kb-key-dpad.active { color: var(--green); border-color: var(--green); }
-    .fdp-right { grid-column: 3; grid-row: 2; }
-    .fdp-down  { grid-column: 2; grid-row: 3; }
   </style>
 </head>
 <body>
@@ -940,13 +922,13 @@
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
-<!-- Floating D-Pad (hovers over keyboard) -->
+<!-- Floating D-Pad -->
 <div id="float-dpad">
-  <button class="fdp-btn fdp-up"    data-send="&#x1b;[A">↑</button>
-  <button class="fdp-btn fdp-left"  data-send="&#x1b;[D">←</button>
-  <button class="fdp-hide" id="fdp-hide-btn">↓</button>
-  <button class="fdp-btn fdp-right" data-send="&#x1b;[C">→</button>
-  <button class="fdp-btn fdp-down"  data-send="&#x1b;[B">↓</button>
+  <span class="fdp-arrow fdp-up">↑</span>
+  <span class="fdp-arrow fdp-left">←</span>
+  <span class="fdp-arrow fdp-right">→</span>
+  <span class="fdp-arrow fdp-down">↓</span>
+  <span class="fdp-dot"></span>
 </div>
 
 <!-- Floating Pill -->
@@ -1392,15 +1374,6 @@
     e.currentTarget.classList.toggle('active', kbState.dpadOpen);
   });
 
-  // D-pad hide button (center of D-pad) — full collapse
-  document.getElementById('fdp-hide-btn').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    kbState.keyboardOpen = false;
-    kbState.toolbarOpen = false;
-    kbState.dpadOpen = false;
-    applyKbState();
-  });
-
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
@@ -1410,15 +1383,52 @@
     }
   });
 
-  // Floating D-pad dispatch
-  document.getElementById('float-dpad').addEventListener('pointerdown', (e) => {
-    const btn = e.target.closest('[data-send]');
-    if (!btn) return;
-    e.stopPropagation();
-    btn.classList.add('pressed');
-    setTimeout(() => btn.classList.remove('pressed'), 120);
-    sendData(btn.dataset.send);
-  });
+  // ── Floating D-Pad — unified drag surface ────────────────
+  const DPAD_KEYS = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+  const DPAD_DEAD = 14; // px dead zone radius from center
+  const DPAD_REPEAT = 80; // ms between repeats while held
+  let dpadDir = null;
+  let dpadRepeat = null;
+
+  function dpadGetDir(x, y) {
+    const rect = floatDpad.getBoundingClientRect();
+    const dx = x - (rect.left + rect.width / 2);
+    const dy = y - (rect.top  + rect.height / 2);
+    if (Math.abs(dx) < DPAD_DEAD && Math.abs(dy) < DPAD_DEAD) return null;
+    return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  }
+
+  function dpadActivate(dir) {
+    if (dir === dpadDir) return;
+    dpadDir = dir;
+    clearInterval(dpadRepeat);
+    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.toggle('active', a.classList.contains(`fdp-${dir}`)));
+    if (dir) {
+      sendData(DPAD_KEYS[dir]);
+      dpadRepeat = setInterval(() => sendData(DPAD_KEYS[dir]), DPAD_REPEAT);
+    }
+  }
+
+  function dpadStop() {
+    clearInterval(dpadRepeat);
+    dpadDir = null;
+    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active'));
+  }
+
+  floatDpad.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    dpadActivate(dpadGetDir(t.clientX, t.clientY));
+  }, { passive: false });
+
+  floatDpad.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    dpadActivate(dpadGetDir(t.clientX, t.clientY));
+  }, { passive: false });
+
+  floatDpad.addEventListener('touchend',    dpadStop);
+  floatDpad.addEventListener('touchcancel', dpadStop);
 
   // Page swap helpers
   const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
