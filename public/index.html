@@ -582,24 +582,10 @@
     }
 
     /* ── Floating Pill ── */
-    #pill-area {
+    #kb-pill {
       position: fixed;
       bottom: calc(12px + env(safe-area-inset-bottom));
       right: 14px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      z-index: 49;
-      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.18s;
-    }
-    #pill-area.active {
-      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
-    }
-    #pill-area.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    #kb-pill {
       background: rgba(17, 24, 32, 0.88);
       border: 1px solid var(--border);
       border-radius: 20px;
@@ -609,23 +595,35 @@
       letter-spacing: 0.12em;
       padding: 7px 14px;
       cursor: pointer;
+      z-index: 49;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
-      transition: color 0.18s, border-color 0.18s;
+      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+                  opacity 0.18s, color 0.18s, border-color 0.18s;
     }
-    #pill-area.active #kb-pill {
+    #kb-pill.active {
+      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
       color: var(--text);
       border-color: var(--dim);
+    }
+    #kb-pill.hidden {
+      opacity: 0;
+      pointer-events: none;
     }
 
     /* ── Floating D-Pad ── */
     #float-dpad {
+      position: fixed;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      right: 14px;
       display: grid;
       grid-template-columns: repeat(3, 36px);
       grid-template-rows: repeat(3, 36px);
       gap: 3px;
+      z-index: 51;
+      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1);
     }
     .fdp-btn {
       background: rgba(28, 38, 53, 0.92);
@@ -919,17 +917,17 @@
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
-<!-- Floating Pill + D-Pad -->
-<div id="pill-area">
-  <div id="float-dpad">
-    <button class="fdp-btn fdp-up"    data-send="&#x1b;[A">↑</button>
-    <button class="fdp-btn fdp-left"  data-send="&#x1b;[D">←</button>
-    <div    class="fdp-mid"></div>
-    <button class="fdp-btn fdp-right" data-send="&#x1b;[C">→</button>
-    <button class="fdp-btn fdp-down"  data-send="&#x1b;[B">↓</button>
-  </div>
-  <button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
+<!-- Floating D-Pad -->
+<div id="float-dpad">
+  <button class="fdp-btn fdp-up"    data-send="&#x1b;[A">↑</button>
+  <button class="fdp-btn fdp-left"  data-send="&#x1b;[D">←</button>
+  <div    class="fdp-mid"></div>
+  <button class="fdp-btn fdp-right" data-send="&#x1b;[C">→</button>
+  <button class="fdp-btn fdp-down"  data-send="&#x1b;[B">↓</button>
 </div>
+
+<!-- Floating Pill -->
+<button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
 
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
@@ -1307,7 +1305,7 @@
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
   const kbPill      = document.getElementById('kb-pill');
-  const pillArea    = document.getElementById('pill-area');
+  const floatDpad   = document.getElementById('float-dpad');
   const kbCtrlKey    = document.getElementById('kb-ctrl');
   const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
   const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
@@ -1333,8 +1331,13 @@
     kbToolbar.classList.toggle('open', showToolbar);
     tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
 
-    pillArea.classList.toggle('active', showToolbar);
-    pillArea.classList.toggle('hidden', kbState.keyboardOpen);
+    kbPill.classList.toggle('active', showToolbar);
+    kbPill.classList.toggle('hidden', kbState.keyboardOpen);
+
+    // Float D-pad above toolbar + keyboard so it's always reachable
+    const kbH = kbState.keyboardOpen ? kbKeyboard.scrollHeight : 0;
+    const tbH = showToolbar ? 44 : 0;
+    floatDpad.style.bottom = `calc(${kbH + tbH}px + 12px + env(safe-area-inset-bottom))`;
   }
 
   // Refit terminal after keyboard transition completes
@@ -1369,7 +1372,7 @@
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
-    if (!kbToolbar.contains(e.target) && !pillArea.contains(e.target)) {
+    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !floatDpad.contains(e.target)) {
       kbState.toolbarOpen = false;
       applyKbState();
     }
