@@ -471,9 +471,10 @@
       color: #000;
     }
 
-    .kb-key-wide  { flex: 0 0 56px; }
-    .kb-key-space { flex: 1; max-width: 180px; }
-    .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
+    .kb-key-wide   { flex: 0 0 56px; }
+    .kb-key-period { flex: 0 0 42px; }
+    .kb-key-space  { flex: 1; }
+    .kb-key-ctrl   { flex: 0 0 48px; font-size: 11px; }
     .kb-key-shift { flex: 0 0 38px; }
 
     .kb-key-mode { flex: 0 0 48px; font-size: 11px; color: var(--blue); }
@@ -575,6 +576,9 @@
       -webkit-tap-highlight-color: transparent;
       user-select: none;
       transition: color 0.08s, background 0.08s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .tb-key:active { color: var(--green); background: rgba(0,255,159,0.06); }
     #tb-kb-toggle { font-size: 18px; }
@@ -707,13 +711,48 @@
     }
 
     /* ── Floating D-Pad ── */
-    #float-dpad {
+    #dpad-wrap {
       position: fixed;
       bottom: calc(var(--toolbar-h) + 16px);
       right: 10px;
       width: 130px;
       height: 130px;
       z-index: 55;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      transform: translateY(6px);
+    }
+    #dpad-wrap.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    #dpad-hide-btn {
+      position: absolute;
+      top: -9px;
+      right: -9px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(14, 22, 32, 0.95);
+      border: 1px solid var(--border);
+      color: var(--dim);
+      font-size: 12px;
+      z-index: 1;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      line-height: 1;
+    }
+    #dpad-hide-btn:active { color: var(--text); border-color: var(--text); }
+    #float-dpad {
+      width: 130px;
+      height: 130px;
       background: rgba(14, 22, 32, 0.96);
       border: 1px solid var(--border);
       backdrop-filter: blur(16px);
@@ -722,16 +761,31 @@
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
+    }
+    #dpad-show-btn {
+      position: fixed;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(14, 22, 32, 0.88);
+      border: 1px solid var(--border);
+      color: var(--blue);
+      font-size: 20px;
+      z-index: 55;
+      cursor: pointer;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.15s, transform 0.15s;
-      transform: translateY(6px);
+      transition: opacity 0.15s;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
-    #float-dpad.open {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
+    #dpad-show-btn.open { opacity: 1; pointer-events: auto; }
     .fdp-arrow {
       position: absolute;
       color: var(--dim);
@@ -759,8 +813,23 @@
       background: var(--border);
       pointer-events: none;
     }
-    .kb-key-dpad { flex: 0 0 40px; font-size: 18px; color: var(--blue); }
-    .kb-key-dpad.active { color: var(--green); border-color: var(--green); background: rgba(0,255,159,0.08); }
+    /* ── D-Pad drag state ── */
+    #dpad-wrap.dragging { opacity: 0.82; }
+    #dpad-wrap.dragging .fdp-dot { background: var(--blue); width: 10px; height: 10px; }
+
+    /* ── Toolbar arrow buttons (toolbar mode only) ── */
+    .tb-arrow { display: none; }
+    body.dpad-toolbar .tb-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 19px;
+      color: var(--blue);
+    }
+    body.dpad-toolbar .tb-arrow:active { color: #fff; background: rgba(92, 207, 230, 0.2); }
+    body.dpad-toolbar #tb-arr-left  { border-left:  1px solid var(--border); }
+    body.dpad-toolbar #tb-arr-right { border-right: 1px solid var(--border); }
   </style>
 </head>
 <body>
@@ -847,8 +916,8 @@
         <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
-        <button class="kb-key kb-key-dpad" id="kb-dpad-toggle">⊕</button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
     </div>
@@ -893,6 +962,7 @@
         <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-num">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
@@ -938,6 +1008,7 @@
         <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-sym">Ctrl</button>
         <button class="kb-key kb-key-wide" data-send="&#x09;">Tab</button>
+        <button class="kb-key kb-key-period" data-send=".">.</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
         <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
       </div>
@@ -1004,17 +1075,25 @@
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
   <button class="tb-key" id="tb-macros">fn</button>
+  <button class="tb-key tb-arrow" id="tb-arr-left"  data-dir="left">←</button>
+  <button class="tb-key tb-arrow" id="tb-arr-up"    data-dir="up">↑</button>
+  <button class="tb-key tb-arrow" id="tb-arr-down"  data-dir="down">↓</button>
+  <button class="tb-key tb-arrow" id="tb-arr-right" data-dir="right">→</button>
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
 <!-- Floating D-Pad -->
-<div id="float-dpad">
-  <span class="fdp-arrow fdp-up">↑</span>
-  <span class="fdp-arrow fdp-left">←</span>
-  <span class="fdp-arrow fdp-right">→</span>
-  <span class="fdp-arrow fdp-down">↓</span>
-  <span class="fdp-dot"></span>
+<div id="dpad-wrap">
+  <button id="dpad-hide-btn" aria-label="Hide D-pad">✕</button>
+  <div id="float-dpad">
+    <span class="fdp-arrow fdp-up">↑</span>
+    <span class="fdp-arrow fdp-left">←</span>
+    <span class="fdp-arrow fdp-right">→</span>
+    <span class="fdp-arrow fdp-down">↓</span>
+    <span class="fdp-dot"></span>
+  </div>
 </div>
+<button id="dpad-show-btn" aria-label="Show D-pad">⊕</button>
 
 <!-- Floating Pill -->
 <button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
@@ -1052,6 +1131,13 @@
       <span class="toggle-slider"></span>
     </label>
   </div>
+  <div class="setting-row">
+    <div class="setting-label">D-Pad<small>mode</small></div>
+    <select id="set-dpad-mode">
+      <option value="float">Float</option>
+      <option value="toolbar">Toolbar</option>
+    </select>
+  </div>
 </div>
 
 <script>
@@ -1075,6 +1161,7 @@
     scrollback: 2000,
     cursorStyle: 'block',
     autoReconnect: true,
+    dpadMode: 'float',
   };
 
   function loadSettings() {
@@ -1224,6 +1311,7 @@
           setStatus('connected');
           doFit();
           term.focus();
+          if (currentDpadMode === 'float') { restoreDpadPos(); dpadWrap.classList.add('open'); dpadShowBtn.classList.remove('open'); }
         } else if (msg.data === 'disconnected') {
           setStatus('idle');
           scheduleReconnect();
@@ -1471,6 +1559,69 @@
   document.getElementById('set-scrollback').value = settings.scrollback;
   document.getElementById('set-cursor').value = settings.cursorStyle;
   document.getElementById('set-reconnect').checked = settings.autoReconnect;
+  document.getElementById('set-dpad-mode').value = settings.dpadMode || 'float';
+
+  const DPAD_POS_KEY = 'termtunnel_dpad_pos';
+  let currentDpadMode = settings.dpadMode || 'float';
+
+  function restoreDpadPos() {
+    try {
+      const pos = JSON.parse(localStorage.getItem(DPAD_POS_KEY) || 'null');
+      if (pos) {
+        dpadWrap.style.right  = pos.right  + 'px';
+        dpadWrap.style.bottom = pos.bottom + 'px';
+      } else {
+        dpadWrap.style.right  = '10px';
+        dpadWrap.style.bottom = 'calc(var(--toolbar-h) + 16px)';
+      }
+    } catch {}
+  }
+
+  function hideDpad() {
+    // Position show-btn at D-pad center before hiding
+    const rect = dpadWrap.getBoundingClientRect();
+    const cx = rect.left + rect.width  / 2;
+    const cy = rect.top  + rect.height / 2;
+    const s  = 40;
+    dpadShowBtn.style.left   = Math.max(0, Math.min(window.innerWidth  - s, cx - s / 2)) + 'px';
+    dpadShowBtn.style.top    = Math.max(0, Math.min(window.innerHeight - s, cy - s / 2)) + 'px';
+    dpadShowBtn.style.right  = '';
+    dpadShowBtn.style.bottom = '';
+    dpadWrap.classList.remove('open');
+    if (currentDpadMode === 'float') dpadShowBtn.classList.add('open');
+  }
+
+  function showDpad() {
+    const rect   = dpadShowBtn.getBoundingClientRect();
+    const cx     = rect.left + rect.width  / 2;
+    const cy     = rect.top  + rect.height / 2;
+    const right  = Math.max(0, window.innerWidth  - (cx + 65));
+    const bottom = Math.max(0, window.innerHeight - (cy + 65));
+    dpadWrap.style.right  = right  + 'px';
+    dpadWrap.style.bottom = bottom + 'px';
+    dpadWrap.style.left   = '';
+    dpadWrap.style.top    = '';
+    localStorage.setItem(DPAD_POS_KEY, JSON.stringify({ right, bottom }));
+    dpadShowBtn.classList.remove('open');
+    dpadWrap.classList.add('open');
+  }
+
+  function applyDpadMode(mode) {
+    currentDpadMode = mode;
+    document.body.classList.toggle('dpad-float',   mode === 'float');
+    document.body.classList.toggle('dpad-toolbar', mode === 'toolbar');
+    if (mode === 'toolbar') {
+      dpadWrap.classList.remove('open');
+      dpadShowBtn.classList.remove('open');
+      kbState.dpadOpen = false;
+    } else {
+      // Float: show if connected
+      if (wasConnected && ws?.readyState === WebSocket.OPEN) {
+        restoreDpadPos();
+        dpadWrap.classList.add('open');
+      }
+    }
+  }
 
   function applySettings() {
     const s = {
@@ -1478,11 +1629,13 @@
       scrollback: parseInt(document.getElementById('set-scrollback').value, 10) || 2000,
       cursorStyle: document.getElementById('set-cursor').value,
       autoReconnect: document.getElementById('set-reconnect').checked,
+      dpadMode: document.getElementById('set-dpad-mode').value,
     };
     saveSettings(s);
     term.options.fontSize = s.fontSize;
     term.options.scrollback = s.scrollback;
     term.options.cursorStyle = s.cursorStyle;
+    applyDpadMode(s.dpadMode);
     doFit();
   }
 
@@ -1520,7 +1673,10 @@
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
   const kbPill      = document.getElementById('kb-pill');
+  const dpadWrap    = document.getElementById('dpad-wrap');
   const floatDpad   = document.getElementById('float-dpad');
+  const dpadHideBtn = document.getElementById('dpad-hide-btn');
+  const dpadShowBtn = document.getElementById('dpad-show-btn');
   const kbCtrlKey    = document.getElementById('kb-ctrl');
   const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
   const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
@@ -1536,6 +1692,9 @@
     shiftActive: false,
   };
 
+  // Apply initial D-pad mode now that floatDpad is defined
+  applyDpadMode(settings.dpadMode || 'float');
+
   function applyKbState() {
     const showToolbar = kbState.toolbarOpen || kbState.keyboardOpen;
 
@@ -1550,11 +1709,11 @@
     kbPill.classList.toggle('active', showToolbar);
     kbPill.classList.toggle('hidden', kbState.keyboardOpen);
 
-    // Close D-pad if keyboard was closed
-    if (!kbState.keyboardOpen) kbState.dpadOpen = false;
-    floatDpad.classList.toggle('open', kbState.dpadOpen);
-    const dpadToggleBtn = document.getElementById('kb-dpad-toggle');
-    if (dpadToggleBtn) dpadToggleBtn.classList.toggle('active', kbState.dpadOpen);
+    // In toolbar mode the D-pad float widget is never shown
+    if (currentDpadMode !== 'float') {
+      if (!kbState.keyboardOpen) kbState.dpadOpen = false;
+      dpadWrap.classList.toggle('open', kbState.dpadOpen);
+    }
   }
 
   // Refit terminal after keyboard transition completes
@@ -1576,18 +1735,52 @@
     applyKbState();
   });
 
-  // D-pad toggle button (replaces "." on keyboard)
-  document.getElementById('kb-dpad-toggle').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    kbState.dpadOpen = !kbState.dpadOpen;
-    floatDpad.classList.toggle('open', kbState.dpadOpen);
-    e.currentTarget.classList.toggle('active', kbState.dpadOpen);
+  // Hide/show D-pad buttons
+  dpadHideBtn.addEventListener('pointerdown', (e) => { e.stopPropagation(); hideDpad(); });
+
+  // Show button — draggable, tap to restore D-pad
+  let showBtnDragging = false;
+  let showBtnMovedPx  = 0;
+  let showBtnStartX   = 0, showBtnStartY   = 0;
+  let showBtnOrigLeft = 0, showBtnOrigTop  = 0;
+
+  dpadShowBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    showBtnStartX = t.clientX;
+    showBtnStartY = t.clientY;
+    showBtnMovedPx = 0;
+    const rect = dpadShowBtn.getBoundingClientRect();
+    showBtnOrigLeft = rect.left;
+    showBtnOrigTop  = rect.top;
+    showBtnDragging = true;
+    dpadShowBtn.style.right  = 'auto';
+    dpadShowBtn.style.bottom = 'auto';
+    dpadShowBtn.style.left   = showBtnOrigLeft + 'px';
+    dpadShowBtn.style.top    = showBtnOrigTop  + 'px';
+  }, { passive: false });
+
+  dpadShowBtn.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const dx = t.clientX - showBtnStartX;
+    const dy = t.clientY - showBtnStartY;
+    showBtnMovedPx = Math.max(Math.abs(dx), Math.abs(dy));
+    const s = dpadShowBtn.offsetWidth;
+    dpadShowBtn.style.left = Math.max(0, Math.min(window.innerWidth  - s, showBtnOrigLeft + dx)) + 'px';
+    dpadShowBtn.style.top  = Math.max(0, Math.min(window.innerHeight - s, showBtnOrigTop  + dy)) + 'px';
+  }, { passive: false });
+
+  dpadShowBtn.addEventListener('touchend', () => {
+    showBtnDragging = false;
+    if (showBtnMovedPx < 6) showDpad();
   });
+  dpadShowBtn.addEventListener('touchcancel', () => { showBtnDragging = false; });
 
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
-    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !floatDpad.contains(e.target)) {
+    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !dpadWrap.contains(e.target)) {
       kbState.toolbarOpen = false;
       applyKbState();
     }
@@ -1655,22 +1848,29 @@
   }
 
   let dpadLastCenterTap = 0;
+  let dpadDragging   = false;
+  let dpadDragStartX = 0, dpadDragStartY = 0;
+  let dpadDragOrigLeft = 0, dpadDragOrigTop = 0;
+  let dpadMovedPx    = 0;
 
   floatDpad.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.touches[0];
     const dir = dpadGetDir(t.clientX, t.clientY);
     if (!dir) {
-      // Centre tap — check for double-tap
-      const now = Date.now();
-      if (now - dpadLastCenterTap < 350) {
-        dpadLastCenterTap = 0;
-        kbState.dpadOpen = false;
-        floatDpad.classList.remove('open');
-        document.getElementById('kb-dpad-toggle').classList.remove('active');
-      } else {
-        dpadLastCenterTap = now;
-      }
+      // Centre zone — grab immediately for drag; double-tap hides
+      dpadDragStartX = t.clientX;
+      dpadDragStartY = t.clientY;
+      dpadMovedPx    = 0;
+      const rect = dpadWrap.getBoundingClientRect();
+      dpadDragOrigLeft = rect.left;
+      dpadDragOrigTop  = rect.top;
+      dpadDragging = true;
+      dpadWrap.style.right  = 'auto';
+      dpadWrap.style.bottom = 'auto';
+      dpadWrap.style.left   = dpadDragOrigLeft + 'px';
+      dpadWrap.style.top    = dpadDragOrigTop  + 'px';
+      dpadWrap.classList.add('dragging');
       return;
     }
     dpadLastCenterTap = 0;
@@ -1680,11 +1880,49 @@
   floatDpad.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const t = e.touches[0];
+    if (dpadDragging) {
+      const dx = t.clientX - dpadDragStartX;
+      const dy = t.clientY - dpadDragStartY;
+      dpadMovedPx = Math.max(Math.abs(dx), Math.abs(dy));
+      const w = dpadWrap.offsetWidth, h = dpadWrap.offsetHeight;
+      dpadWrap.style.left = Math.max(0, Math.min(window.innerWidth  - w, dpadDragOrigLeft + dx)) + 'px';
+      dpadWrap.style.top  = Math.max(0, Math.min(window.innerHeight - h, dpadDragOrigTop  + dy)) + 'px';
+      return;
+    }
     dpadActivate(dpadGetDir(t.clientX, t.clientY));
   }, { passive: false });
 
-  floatDpad.addEventListener('touchend',    dpadStop);
-  floatDpad.addEventListener('touchcancel', dpadStop);
+  floatDpad.addEventListener('touchend', () => {
+    if (dpadDragging) {
+      dpadDragging = false;
+      dpadWrap.classList.remove('dragging');
+      const rect   = dpadWrap.getBoundingClientRect();
+      const right  = Math.max(0, window.innerWidth  - rect.right);
+      const bottom = Math.max(0, window.innerHeight - rect.bottom);
+      dpadWrap.style.left   = '';
+      dpadWrap.style.top    = '';
+      dpadWrap.style.right  = right  + 'px';
+      dpadWrap.style.bottom = bottom + 'px';
+      localStorage.setItem(DPAD_POS_KEY, JSON.stringify({ right, bottom }));
+      // Double-tap centre: hide if barely moved
+      if (dpadMovedPx < 6) {
+        const now = Date.now();
+        if (now - dpadLastCenterTap < 350) {
+          dpadLastCenterTap = 0;
+          hideDpad();
+        } else {
+          dpadLastCenterTap = now;
+        }
+      }
+      return;
+    }
+    dpadStop();
+  });
+  floatDpad.addEventListener('touchcancel', () => {
+    dpadDragging = false;
+    dpadWrap.classList.remove('dragging');
+    dpadStop();
+  });
 
   // Page swap helpers
   const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
@@ -1951,6 +2189,14 @@
         kbRepeatInterval = setInterval(() => sendData(payload), 80);
       }, 320);
     }
+  });
+
+  // Toolbar arrow buttons
+  kbToolbar.querySelectorAll('.tb-arrow').forEach(btn => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      sendData(dpadKey(btn.dataset.dir));
+    });
   });
 
   // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
