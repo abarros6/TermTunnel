@@ -623,15 +623,15 @@
     /* ── Floating D-Pad ── */
     #float-dpad {
       display: grid;
-      grid-template-columns: repeat(3, 15px);
-      grid-template-rows: repeat(3, 15px);
-      gap: 1px;
+      grid-template-columns: repeat(3, 36px);
+      grid-template-rows: repeat(3, 36px);
+      gap: 3px;
     }
     .fdp-btn {
-      background: rgba(17, 24, 32, 0.88);
+      background: rgba(28, 38, 53, 0.92);
       border: 1px solid var(--border);
-      color: var(--dim);
-      font-size: 9px;
+      color: var(--text);
+      font-size: 16px;
       padding: 0;
       cursor: pointer;
       touch-action: manipulation;
@@ -640,15 +640,20 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 2px;
+      border-radius: 4px;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      transition: background 0.08s, color 0.08s;
+      transition: background 0.06s, color 0.06s, border-color 0.06s;
     }
-    .fdp-btn:active { background: #2a3a52; color: var(--text); }
+    .fdp-btn:active,
+    .fdp-btn.pressed {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: #000;
+    }
     .fdp-up    { grid-column: 2; grid-row: 1; }
     .fdp-left  { grid-column: 1; grid-row: 2; }
-    .fdp-mid   { grid-column: 2; grid-row: 2; background: #111820; border: 1px solid #111820; border-radius: 50%; }
+    .fdp-mid   { grid-column: 2; grid-row: 2; background: #0d1520; border: 1px solid #1a2535; border-radius: 50%; }
     .fdp-right { grid-column: 3; grid-row: 2; }
     .fdp-down  { grid-column: 2; grid-row: 3; }
   </style>
@@ -1375,6 +1380,8 @@
     const btn = e.target.closest('[data-send]');
     if (!btn) return;
     e.stopPropagation();
+    btn.classList.add('pressed');
+    setTimeout(() => btn.classList.remove('pressed'), 120);
     sendData(btn.dataset.send);
   });
 
