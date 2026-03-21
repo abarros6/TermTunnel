@@ -716,6 +716,7 @@
       <button class="icon-btn cb-btn" id="copy-btn" title="Copy selection">Copy</button>
       <button class="icon-btn cb-btn" id="paste-btn" title="Paste from clipboard">Paste</button>
       <button class="icon-btn" id="reconnect-btn" title="Reconnect">⟳</button>
+      <button class="icon-btn" id="switch-btn" title="Switch session">⏏</button>
       <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
     </div>
   </div>
@@ -1375,6 +1376,13 @@
     } else {
       showOverlay();
     }
+  });
+
+  document.getElementById('switch-btn').addEventListener('click', () => {
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    wasConnected = false;
+    setStatus('idle');
+    showOverlay();
   });
 
   // ── Settings panel ────────────────────────────────────────
