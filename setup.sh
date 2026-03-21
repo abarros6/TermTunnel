@@ -200,39 +200,56 @@ EOF
   ok "Compact prompt added to ~/.zshrc"
 fi
 
-# ── Step 10: pm2 ─────────────────────────────────────────────────────────────
-step "10/10" "pm2 process manager"
+# ── Step 10: launchd service ──────────────────────────────────────────────────
+step "10/10" "launchd service (auto-start + crash restart)"
 
-if ! command -v pm2 &>/dev/null; then
-  info "Installing pm2 globally…"
-  npm install -g pm2 --silent
-  ok "pm2 installed"
-else
-  ok "pm2 $(pm2 --version)"
-fi
+NODE_BIN=$(which node)
+PLIST_DIR="$HOME/Library/LaunchAgents"
+PLIST_FILE="$PLIST_DIR/com.termtunnel.server.plist"
+LOG_DIR="$HOME/.termtunnel"
+LOG_FILE="$LOG_DIR/server.log"
 
-if pm2 describe termtunnel &>/dev/null 2>&1; then
-  pm2 restart termtunnel --silent
-  ok "termtunnel restarted"
-else
-  pm2 start server.js --name termtunnel --silent
-  ok "termtunnel started"
-fi
+mkdir -p "$PLIST_DIR" "$LOG_DIR"
 
-pm2 save --silent
-ok "pm2 process list saved"
+cat > "$PLIST_FILE" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.termtunnel.server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>${NODE_BIN}</string>
+        <string>${SCRIPT_DIR}/server.js</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>${SCRIPT_DIR}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>${HOME}</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>KeepAlive</key>
+    <true/>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>${LOG_FILE}</string>
+    <key>StandardErrorPath</key>
+    <string>${LOG_FILE}</string>
+</dict>
+</plist>
+EOF
 
-# Register pm2 to start on login automatically
-info "Registering pm2 for auto-start on login…"
-STARTUP_CMD=$(pm2 startup 2>/dev/null | grep -E "^sudo " | head -1 || true)
-if [[ -n "$STARTUP_CMD" ]]; then
-  eval "$STARTUP_CMD" &>/dev/null && ok "pm2 auto-start registered" || {
-    warn "Could not register auto-start automatically."
-    ERRORS+=("pm2 auto-start: run manually: $STARTUP_CMD")
-  }
-else
-  ok "pm2 auto-start already registered"
-fi
+ok "plist written to $PLIST_FILE"
+
+# Unload first if already registered (re-running setup)
+launchctl unload "$PLIST_FILE" 2>/dev/null || true
+launchctl load "$PLIST_FILE"
+ok "launchd service loaded — server will start now and on every login"
 
 # ── Tailscale check ───────────────────────────────────────────────────────────
 TAILSCALE_IP=""
@@ -268,7 +285,7 @@ echo ""
 if [[ "$SERVER_OK" == true ]]; then
   ok "Server is running at http://localhost:${PORT}"
 else
-  warn "Server health check failed — check: pm2 logs termtunnel"
+  warn "Server health check failed — check: tail -f ~/.termtunnel/server.log"
 fi
 
 echo ""
@@ -290,10 +307,11 @@ else
 fi
 
 echo ""
-echo -e "  ${DIM}grep AUTH_TOKEN .env         # show token anytime${RESET}"
-echo -e "  ${DIM}pm2 logs termtunnel          # view server logs${RESET}"
-echo -e "  ${DIM}pm2 restart termtunnel       # restart server${RESET}"
-echo -e "  ${DIM}tmux attach -t termtunnel    # attach to terminal session${RESET}"
+echo -e "  ${DIM}grep AUTH_TOKEN .env                          # show token anytime${RESET}"
+echo -e "  ${DIM}tail -f ~/.termtunnel/server.log              # view server logs${RESET}"
+echo -e "  ${DIM}launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # restart server${RESET}"
+echo -e "  ${DIM}git pull && launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # update${RESET}"
+echo -e "  ${DIM}tmux attach -t termtunnel                     # attach to terminal session${RESET}"
 
 # Surface any non-fatal issues
 if [[ ${#ERRORS[@]} -gt 0 ]]; then

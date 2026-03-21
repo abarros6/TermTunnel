@@ -4,7 +4,7 @@ import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
-import { execSync, exec } from 'child_process';
+import { execSync } from 'child_process';
 import pty from 'node-pty';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -102,24 +102,6 @@ wss.on('connection', (ws, req) => {
   });
 });
 
-function pullMain() {
-  exec('git pull origin main', { cwd: __dirname }, (err, stdout, stderr) => {
-    if (err) {
-      console.error('[AutoUpdate] git pull failed:', stderr.trim() || err.message);
-      return;
-    }
-    const out = stdout.trim();
-    if (out && out !== 'Already up to date.') {
-      console.log('[AutoUpdate] Pulled changes:', out);
-      console.log('[AutoUpdate] Restarting via pm2...');
-      exec('pm2 restart termtunnel', (restartErr) => {
-        if (restartErr) console.error('[AutoUpdate] pm2 restart failed:', restartErr.message);
-      });
-    }
-  });
-}
-
-setInterval(pullMain, 15 * 60 * 1000);
 
 server.listen(PORT, () => {
   console.log(`[TermTunnel] Server listening on http://localhost:${PORT}`);
