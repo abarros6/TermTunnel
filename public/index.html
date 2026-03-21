@@ -1799,6 +1799,7 @@
   function kbStopRepeat() {
     clearTimeout(kbRepeatDelay);
     clearInterval(kbRepeatInterval);
+    clearTimeout(spaceLpTimer);
     kbRepeatDelay = kbRepeatInterval = null;
   }
   document.addEventListener('pointerup',     kbStopRepeat);
@@ -1809,6 +1810,8 @@
   let kbLpTimer    = null;
   let kbLpActive   = false;
   let kbLpKey      = null;
+  let spaceLpTimer  = null;
+  let lastSpaceDown = 0;
   let kbLpAlts     = [];
   let kbLpHighIdx  = -1;
 
@@ -1938,6 +1941,27 @@
     // Alt-capable keys are dispatched via touchend instead
     if (key.dataset.alts !== undefined) return;
     e.stopPropagation();
+
+    // Space: double-tap → ". ", long-press → Tab
+    if (key.classList.contains('kb-key-space')) {
+      const now = Date.now();
+      const gap = now - lastSpaceDown;
+      clearTimeout(spaceLpTimer);
+      if (gap > 100 && gap < 500) {
+        sendData('\x7f');
+        sendData('. ');
+        lastSpaceDown = 0;
+      } else {
+        sendData(' ');
+        lastSpaceDown = now;
+        spaceLpTimer = setTimeout(() => {
+          sendData('\x7f');
+          sendData('\x09');
+          lastSpaceDown = 0;
+        }, 500);
+      }
+      return;
+    }
 
     kbDispatch(key);
 
