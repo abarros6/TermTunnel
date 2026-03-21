@@ -12,7 +12,6 @@ ok()     { echo -e "${GREEN}✓${RESET}  $*"; }
 info()   { echo -e "${DIM}→${RESET}  $*"; }
 warn()   { echo -e "${AMBER}!${RESET}  $*"; }
 fail()   { echo -e "${RED}✗${RESET}  $*"; echo ""; exit 1; }
-header() { echo -e "\n${BOLD}$*${RESET}"; }
 step()   { echo -e "\n${BOLD}${GREEN}[$1]${RESET} ${BOLD}$2${RESET}"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,17 +20,17 @@ cd "$SCRIPT_DIR"
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}${GREEN}║        TermTunnel Setup              ║${RESET}"
-echo -e "${BOLD}${GREEN}║  WebSocket SSH bridge for iPhone     ║${RESET}"
+echo -e "${BOLD}${GREEN}║   Mobile terminal for your iPhone    ║${RESET}"
 echo -e "${BOLD}${GREEN}╚══════════════════════════════════════╝${RESET}"
 echo ""
 echo -e "${DIM}This script sets up everything needed to run TermTunnel on this Mac.${RESET}"
-echo -e "${DIM}It will request sudo for firewall and auto-start configuration.${RESET}"
+echo -e "${DIM}sudo is required for the firewall step only.${RESET}"
 echo ""
 
-ERRORS=()  # collect non-fatal issues to surface at the end
+ERRORS=()
 
 # ── Step 1: Xcode Command Line Tools ─────────────────────────────────────────
-step "1/10" "Xcode Command Line Tools"
+step "1/9" "Xcode Command Line Tools"
 
 if xcode-select -p &>/dev/null; then
   ok "Xcode Command Line Tools installed"
@@ -45,7 +44,7 @@ else
 fi
 
 # ── Step 2: Homebrew ──────────────────────────────────────────────────────────
-step "2/10" "Homebrew"
+step "2/9" "Homebrew"
 
 if command -v brew &>/dev/null; then
   ok "Homebrew $(brew --version | head -1 | cut -d' ' -f2)"
@@ -54,7 +53,6 @@ else
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" || \
     fail "Homebrew install failed. Install manually from https://brew.sh then re-run."
 
-  # Add Homebrew to PATH for Apple Silicon
   if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
   fi
@@ -62,7 +60,7 @@ else
 fi
 
 # ── Step 3: Node.js ───────────────────────────────────────────────────────────
-step "3/10" "Node.js"
+step "3/9" "Node.js"
 
 if command -v node &>/dev/null; then
   NODE_VER=$(node -e "process.stdout.write(process.versions.node)")
@@ -79,7 +77,7 @@ else
 fi
 
 # ── Step 4: tmux ─────────────────────────────────────────────────────────────
-step "4/10" "tmux (session persistence)"
+step "4/9" "tmux (session persistence)"
 
 if command -v tmux &>/dev/null; then
   ok "tmux $(tmux -V | cut -d' ' -f2)"
@@ -90,84 +88,25 @@ else
 fi
 
 # ── Step 5: npm dependencies ──────────────────────────────────────────────────
-step "5/10" "Node dependencies"
+step "5/9" "Node dependencies"
 
 npm install --silent
 ok "npm packages installed"
 
 # ── Step 6: .env ──────────────────────────────────────────────────────────────
-step "6/10" ".env configuration"
+step "6/9" ".env configuration"
 
 if [[ -f .env ]]; then
   warn ".env already exists — skipping (delete it and re-run to regenerate)"
 else
   cp .env.example .env
-
-  SSH_USER=$(whoami)
   AUTH_TOKEN=$(node -e "const c=require('crypto'); process.stdout.write(c.randomBytes(32).toString('hex'))")
-
-  sed -i '' "s/SSH_USER=your_username/SSH_USER=${SSH_USER}/" .env
-  sed -i '' "s/AUTH_TOKEN=generate_with_crypto_randomBytes_32_hex/AUTH_TOKEN=${AUTH_TOKEN}/" .env
-  sed -i '' "s|# SSH_KEY_PATH=~/.ssh/id_ed25519|SSH_KEY_PATH=~/.ssh/id_ed25519|" .env
-
-  ok ".env created (SSH_USER=${SSH_USER})"
+  sed -i '' "s/AUTH_TOKEN=/AUTH_TOKEN=${AUTH_TOKEN}/" .env
+  ok ".env created"
 fi
 
-# ── Step 7: SSH key + Remote Login ───────────────────────────────────────────
-step "7/10" "SSH configuration"
-
-# Enable Remote Login
-info "Enabling Remote Login (SSH daemon)…"
-if sudo systemsetup -setremotelogin on 2>/dev/null; then
-  ok "Remote Login enabled"
-else
-  # systemsetup is deprecated in newer macOS — try launchctl
-  sudo launchctl enable system/com.apple.remote_login 2>/dev/null && \
-  sudo launchctl start com.apple.remote_login 2>/dev/null && \
-  ok "Remote Login enabled" || {
-    warn "Could not enable Remote Login automatically."
-    warn "Enable it manually: System Settings → General → Sharing → Remote Login → ON"
-    ERRORS+=("Remote Login: enable manually via System Settings → General → Sharing → Remote Login → ON")
-  }
-fi
-
-# SSH key
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-
-if [[ ! -f ~/.ssh/id_ed25519 ]]; then
-  info "Generating SSH key…"
-  ssh-keygen -t ed25519 -C "termtunnel" -N "" -f ~/.ssh/id_ed25519 -q
-  ok "SSH key generated at ~/.ssh/id_ed25519"
-else
-  ok "SSH key exists at ~/.ssh/id_ed25519"
-fi
-
-if ! grep -qF "$(cat ~/.ssh/id_ed25519.pub)" ~/.ssh/authorized_keys 2>/dev/null; then
-  cat ~/.ssh/id_ed25519.pub >> ~/.ssh/authorized_keys
-  chmod 600 ~/.ssh/authorized_keys
-  ok "Public key added to ~/.ssh/authorized_keys"
-else
-  ok "Public key already in ~/.ssh/authorized_keys"
-fi
-
-if ! ssh-keygen -F 127.0.0.1 &>/dev/null; then
-  ssh-keyscan -H 127.0.0.1 >> ~/.ssh/known_hosts 2>/dev/null
-  ok "127.0.0.1 added to ~/.ssh/known_hosts"
-else
-  ok "127.0.0.1 already in ~/.ssh/known_hosts"
-fi
-
-# Test SSH
-if ssh -o BatchMode=yes -o ConnectTimeout=5 "$(whoami)@127.0.0.1" echo "ok" &>/dev/null; then
-  ok "SSH to localhost works"
-else
-  warn "SSH test failed — Remote Login may need a moment or manual intervention."
-  ERRORS+=("SSH: test 'ssh $(whoami)@127.0.0.1' after ensuring Remote Login is ON in System Settings")
-fi
-
-# ── Step 8: macOS firewall ────────────────────────────────────────────────────
-step "8/10" "macOS firewall"
+# ── Step 7: macOS firewall ────────────────────────────────────────────────────
+step "7/9" "macOS firewall"
 
 NODE_PATH=$(which node)
 FW="/usr/libexec/ApplicationFirewall/socketfilterfw"
@@ -181,8 +120,9 @@ else
   ok "Node.js allowed in firewall"
 fi
 
-# ── Step 9: Shell prompt ──────────────────────────────────────────────────────
-step "9/10" "Shell prompt"
+# ── Step 8: launchd service ───────────────────────────────────────────────────
+# ── Step 8: Shell prompt ──────────────────────────────────────────────────────
+step "8/9" "Shell prompt"
 
 ZSHRC="$HOME/.zshrc"
 PROMPT_MARKER="# TermTunnel — compact prompt"
@@ -190,18 +130,18 @@ PROMPT_MARKER="# TermTunnel — compact prompt"
 if grep -q "$PROMPT_MARKER" "$ZSHRC" 2>/dev/null; then
   ok "TermTunnel prompt already in ~/.zshrc"
 else
-  cat >> "$ZSHRC" << 'EOF'
+  cat >> "$ZSHRC" << 'ZSHEOF'
 
 # TermTunnel — compact prompt (only active inside TermTunnel sessions)
 if [[ -n "$TERMTUNNEL" ]]; then
   PROMPT='%F{green}%1~%f %# '
 fi
-EOF
+ZSHEOF
   ok "Compact prompt added to ~/.zshrc"
 fi
 
-# ── Step 10: launchd service ──────────────────────────────────────────────────
-step "10/10" "launchd service (auto-start + crash restart)"
+# ── Step 9: launchd service ───────────────────────────────────────────────────
+step "9/9" "launchd service (auto-start + crash restart)"
 
 NODE_BIN=$(which node)
 PLIST_DIR="$HOME/Library/LaunchAgents"
@@ -246,7 +186,6 @@ EOF
 
 ok "plist written to $PLIST_FILE"
 
-# Unload first if already registered (re-running setup)
 launchctl unload "$PLIST_FILE" 2>/dev/null || true
 launchctl load "$PLIST_FILE"
 ok "launchd service loaded — server will start now and on every login"
@@ -307,13 +246,11 @@ else
 fi
 
 echo ""
-echo -e "  ${DIM}grep AUTH_TOKEN .env                          # show token anytime${RESET}"
-echo -e "  ${DIM}tail -f ~/.termtunnel/server.log              # view server logs${RESET}"
-echo -e "  ${DIM}launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # restart server${RESET}"
-echo -e "  ${DIM}git pull && launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # update${RESET}"
-echo -e "  ${DIM}tmux attach -t termtunnel                     # attach to terminal session${RESET}"
+echo -e "  ${DIM}grep AUTH_TOKEN .env                 # show token anytime${RESET}"
+echo -e "  ${DIM}tail -f ~/.termtunnel/server.log      # view server logs${RESET}"
+echo -e "  ${DIM}launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # restart${RESET}"
+echo -e "  ${DIM}tmux attach -t termtunnel             # attach to terminal session${RESET}"
 
-# Surface any non-fatal issues
 if [[ ${#ERRORS[@]} -gt 0 ]]; then
   echo ""
   echo -e "  ${BOLD}${AMBER}Action required:${RESET}"
