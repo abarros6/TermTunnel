@@ -512,6 +512,39 @@
       border-left-color: rgba(92, 207, 230, 0.3);
     }
 
+    /* ── D-Pad ── */
+    #tb-dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 13px);
+      grid-template-rows: repeat(3, 13px);
+      gap: 1px;
+      align-self: center;
+      margin: 0 6px;
+      flex-shrink: 0;
+    }
+    .dp-btn {
+      background: #1c2635;
+      border: 1px solid var(--border);
+      color: var(--dim);
+      font-size: 8px;
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 2px;
+      transition: background 0.08s, color 0.08s;
+    }
+    .dp-btn:active { background: #2a3a52; color: var(--text); }
+    .dp-up    { grid-column: 2; grid-row: 1; }
+    .dp-left  { grid-column: 1; grid-row: 2; }
+    .dp-mid   { grid-column: 2; grid-row: 2; background: #111820; border-color: #111820; border-radius: 50%; }
+    .dp-right { grid-column: 3; grid-row: 2; }
+    .dp-down  { grid-column: 2; grid-row: 3; }
+
     /* ── Toolbar Long-Press Popup ── */
     #tb-popup {
       position: fixed;
@@ -872,10 +905,13 @@
 <!-- Keyboard Toolbar -->
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
-  <button class="tb-key" id="tb-up" data-send="&#x1b;[A" data-lp>↑</button>
-  <button class="tb-key" id="tb-down" data-send="&#x1b;[B" data-lp>↓</button>
-  <button class="tb-key" id="tb-left" data-send="&#x1b;[D" data-lp>←</button>
-  <button class="tb-key" id="tb-right" data-send="&#x1b;[C" data-lp>→</button>
+  <div id="tb-dpad">
+    <button class="dp-btn dp-up"    data-send="&#x1b;[A">↑</button>
+    <button class="dp-btn dp-left"  data-send="&#x1b;[D">←</button>
+    <div    class="dp-mid"></div>
+    <button class="dp-btn dp-right" data-send="&#x1b;[C">→</button>
+    <button class="dp-btn dp-down"  data-send="&#x1b;[B">↓</button>
+  </div>
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
@@ -1485,22 +1521,6 @@
     'tb-esc': [
       { label: '^\\  SIGQUIT',       send: '\x1c' },
       { label: 'Alt+.  last arg',    send: '\x1b.' },
-    ],
-    'tb-up': [
-      { label: 'Page Up',            send: '\x1b[5~' },
-      { label: 'C-b [  tmux scroll', send: '\x02[' },
-    ],
-    'tb-down': [
-      { label: 'Page Down',          send: '\x1b[6~' },
-      { label: 'q  exit scroll',     send: 'q' },
-    ],
-    'tb-left': [
-      { label: 'Home',               send: '\x1b[H' },
-      { label: 'Alt+B  word ←',      send: '\x1bb' },
-    ],
-    'tb-right': [
-      { label: 'End',                send: '\x1b[F' },
-      { label: 'Alt+F  word →',      send: '\x1bf' },
     ],
   };
 
