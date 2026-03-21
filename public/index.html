@@ -512,39 +512,6 @@
       border-left-color: rgba(92, 207, 230, 0.3);
     }
 
-    /* ── D-Pad ── */
-    #tb-dpad {
-      display: grid;
-      grid-template-columns: repeat(3, 13px);
-      grid-template-rows: repeat(3, 13px);
-      gap: 1px;
-      align-self: center;
-      margin: 0 6px;
-      flex-shrink: 0;
-    }
-    .dp-btn {
-      background: #1c2635;
-      border: 1px solid var(--border);
-      color: var(--dim);
-      font-size: 8px;
-      padding: 0;
-      cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 2px;
-      transition: background 0.08s, color 0.08s;
-    }
-    .dp-btn:active { background: #2a3a52; color: var(--text); }
-    .dp-up    { grid-column: 2; grid-row: 1; }
-    .dp-left  { grid-column: 1; grid-row: 2; }
-    .dp-mid   { grid-column: 2; grid-row: 2; background: #111820; border-color: #111820; border-radius: 50%; }
-    .dp-right { grid-column: 3; grid-row: 2; }
-    .dp-down  { grid-column: 2; grid-row: 3; }
-
     /* ── Toolbar Long-Press Popup ── */
     #tb-popup {
       position: fixed;
@@ -615,10 +582,24 @@
     }
 
     /* ── Floating Pill ── */
-    #kb-pill {
+    #pill-area {
       position: fixed;
       bottom: calc(12px + env(safe-area-inset-bottom));
       right: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 49;
+      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.18s;
+    }
+    #pill-area.active {
+      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
+    }
+    #pill-area.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #kb-pill {
       background: rgba(17, 24, 32, 0.88);
       border: 1px solid var(--border);
       border-radius: 20px;
@@ -628,23 +609,48 @@
       letter-spacing: 0.12em;
       padding: 7px 14px;
       cursor: pointer;
-      z-index: 49;
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
-      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1),
-                  opacity 0.18s, color 0.18s, border-color 0.18s;
+      transition: color 0.18s, border-color 0.18s;
     }
-    #kb-pill.active {
-      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
+    #pill-area.active #kb-pill {
       color: var(--text);
       border-color: var(--dim);
     }
-    #kb-pill.hidden {
-      opacity: 0;
-      pointer-events: none;
+
+    /* ── Floating D-Pad ── */
+    #float-dpad {
+      display: grid;
+      grid-template-columns: repeat(3, 15px);
+      grid-template-rows: repeat(3, 15px);
+      gap: 1px;
     }
+    .fdp-btn {
+      background: rgba(17, 24, 32, 0.88);
+      border: 1px solid var(--border);
+      color: var(--dim);
+      font-size: 9px;
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 2px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: background 0.08s, color 0.08s;
+    }
+    .fdp-btn:active { background: #2a3a52; color: var(--text); }
+    .fdp-up    { grid-column: 2; grid-row: 1; }
+    .fdp-left  { grid-column: 1; grid-row: 2; }
+    .fdp-mid   { grid-column: 2; grid-row: 2; background: #111820; border: 1px solid #111820; border-radius: 50%; }
+    .fdp-right { grid-column: 3; grid-row: 2; }
+    .fdp-down  { grid-column: 2; grid-row: 3; }
   </style>
 </head>
 <body>
@@ -905,18 +911,20 @@
 <!-- Keyboard Toolbar -->
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
-  <div id="tb-dpad">
-    <button class="dp-btn dp-up"    data-send="&#x1b;[A">↑</button>
-    <button class="dp-btn dp-left"  data-send="&#x1b;[D">←</button>
-    <div    class="dp-mid"></div>
-    <button class="dp-btn dp-right" data-send="&#x1b;[C">→</button>
-    <button class="dp-btn dp-down"  data-send="&#x1b;[B">↓</button>
-  </div>
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
-<!-- Floating Pill -->
-<button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
+<!-- Floating Pill + D-Pad -->
+<div id="pill-area">
+  <div id="float-dpad">
+    <button class="fdp-btn fdp-up"    data-send="&#x1b;[A">↑</button>
+    <button class="fdp-btn fdp-left"  data-send="&#x1b;[D">←</button>
+    <div    class="fdp-mid"></div>
+    <button class="fdp-btn fdp-right" data-send="&#x1b;[C">→</button>
+    <button class="fdp-btn fdp-down"  data-send="&#x1b;[B">↓</button>
+  </div>
+  <button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
+</div>
 
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
@@ -1294,6 +1302,7 @@
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
   const kbPill      = document.getElementById('kb-pill');
+  const pillArea    = document.getElementById('pill-area');
   const kbCtrlKey    = document.getElementById('kb-ctrl');
   const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
   const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
@@ -1319,8 +1328,8 @@
     kbToolbar.classList.toggle('open', showToolbar);
     tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
 
-    kbPill.classList.toggle('active', showToolbar);
-    kbPill.classList.toggle('hidden', kbState.keyboardOpen);
+    pillArea.classList.toggle('active', showToolbar);
+    pillArea.classList.toggle('hidden', kbState.keyboardOpen);
   }
 
   // Refit terminal after keyboard transition completes
@@ -1355,10 +1364,18 @@
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
-    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target)) {
+    if (!kbToolbar.contains(e.target) && !pillArea.contains(e.target)) {
       kbState.toolbarOpen = false;
       applyKbState();
     }
+  });
+
+  // Floating D-pad dispatch
+  document.getElementById('float-dpad').addEventListener('pointerdown', (e) => {
+    const btn = e.target.closest('[data-send]');
+    if (!btn) return;
+    e.stopPropagation();
+    sendData(btn.dataset.send);
   });
 
   // Page swap helpers
