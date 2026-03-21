@@ -30,7 +30,6 @@
       --red: #ff4444;
       --text: #b3b1ad;
       --dim: #4a5568;
-      --header-h: 48px;
       --toolbar-h: 44px;
       --kb-actual-h: 0px;
     }
@@ -51,37 +50,32 @@
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      padding-top: env(safe-area-inset-top);
+      position: relative;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
 
-    /* ── Header ── */
-    #header {
+    /* ── Status pill (floating overlay) ── */
+    #status-bar {
+      position: absolute;
+      top: calc(10px + env(safe-area-inset-top));
+      right: 12px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      height: var(--header-h);
-      padding: 0 14px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      gap: 9px;
+      background: rgba(16, 22, 32, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 7px 11px;
       z-index: 10;
-    }
-
-    #logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      color: var(--green);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      touch-action: manipulation;
     }
 
     #status-dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--dim);
       transition: background 0.3s, box-shadow 0.3s;
@@ -95,40 +89,48 @@
       background: var(--amber);
       animation: pulse 1s ease-in-out infinite;
     }
-    #status-dot.error {
-      background: var(--red);
-    }
+    #status-dot.error { background: var(--red); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
 
-    #header-actions {
-      display: flex;
-      gap: 4px;
-    }
-
-    .icon-btn {
+    #settings-btn {
       background: none;
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      font-size: 16px;
+      border: none;
+      color: var(--dim);
+      font-size: 15px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: border-color 0.2s, color 0.2s;
+      padding: 0;
+      line-height: 1;
       -webkit-tap-highlight-color: transparent;
     }
-    .icon-btn:active { border-color: var(--green); color: var(--green); }
+    #settings-btn:active { color: var(--text); }
 
-    .icon-btn.cb-btn { color: var(--blue); border-color: rgba(92, 207, 230, 0.25); padding: 0 10px; width: auto; font-size: 12px; }
-    .icon-btn.cb-btn:active { border-color: var(--blue); }
-    .icon-btn.cb-btn.flash { border-color: var(--blue); background: rgba(92, 207, 230, 0.1); }
+    /* ── Settings action buttons ── */
+    .setting-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .sa-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      padding: 13px 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .sa-btn:active { border-color: var(--green); color: var(--green); }
+    .sa-btn.flash { border-color: var(--blue); color: var(--blue); }
 
     /* ── Terminal Container ── */
     #terminal-wrap {
@@ -707,18 +709,9 @@
 <body>
 <div id="app">
   <!-- Header -->
-  <div id="header">
-    <div id="logo">
-      <div id="status-dot"></div>
-      TERMTUNNEL ›_
-    </div>
-    <div id="header-actions">
-      <button class="icon-btn cb-btn" id="copy-btn" title="Copy selection">Copy</button>
-      <button class="icon-btn cb-btn" id="paste-btn" title="Paste from clipboard">Paste</button>
-      <button class="icon-btn" id="reconnect-btn" title="Reconnect">⟳</button>
-      <button class="icon-btn" id="switch-btn" title="Switch session">⏏</button>
-      <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
-    </div>
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <button id="settings-btn" title="Settings">⚙</button>
   </div>
 
   <!-- Terminal + Overlay -->
@@ -981,6 +974,12 @@
 <div id="settings-backdrop"></div>
 <div id="settings-panel">
   <h3>SETTINGS</h3>
+  <div class="setting-actions">
+    <button class="sa-btn" id="copy-btn">Copy</button>
+    <button class="sa-btn" id="paste-btn">Paste</button>
+    <button class="sa-btn" id="reconnect-btn">Reconnect</button>
+    <button class="sa-btn" id="switch-btn">Switch Session</button>
+  </div>
   <div class="setting-row">
     <div class="setting-label">Font Size<small>px</small></div>
     <input type="number" id="set-fontsize" value="14" min="8" max="32">
@@ -1383,6 +1382,7 @@
 
   // ── Reconnect button ──────────────────────────────────────
   document.getElementById('reconnect-btn').addEventListener('click', () => {
+    closeSettings();
     reconnectAttempts = 0;
     const c = loadConn();
     if (c.host && c.port) {
@@ -1393,6 +1393,7 @@
   });
 
   document.getElementById('switch-btn').addEventListener('click', () => {
+    closeSettings();
     if (ws) { ws.onclose = null; ws.close(); ws = null; }
     wasConnected = false;
     setStatus('idle');
@@ -1447,6 +1448,7 @@
     if (!selection) return;
     navigator.clipboard.writeText(selection).then(() => {
       flashBtn(document.getElementById('copy-btn'));
+      closeSettings();
     }).catch(() => {});
   });
 
@@ -1455,6 +1457,7 @@
       if (text) {
         sendData(text);
         flashBtn(document.getElementById('paste-btn'));
+        closeSettings();
       }
     }).catch(() => {});
   });
