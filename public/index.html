@@ -617,7 +617,7 @@
     #float-dpad {
       position: fixed;
       bottom: calc(12px + env(safe-area-inset-bottom));
-      right: 14px;
+      right: calc(14px + 58px + 10px); /* clear of the pill */
       display: grid;
       grid-template-columns: repeat(3, 36px);
       grid-template-rows: repeat(3, 36px);
