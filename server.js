@@ -62,7 +62,8 @@ app.get('/api/sessions', (_req, res) => {
   if (!TMUX) return res.json({ sessions: [] });
   try {
     const out = execSync(`${TMUX} list-sessions -F "#{session_name}" 2>/dev/null`).toString().trim();
-    res.json({ sessions: out ? out.split('\n').filter(Boolean) : [] });
+    const sessions = out ? out.split('\n').filter(s => s && !s.startsWith('tt_ph_')) : [];
+    res.json({ sessions });
   } catch {
     res.json({ sessions: [] });
   }
@@ -89,9 +90,21 @@ wss.on('connection', (ws, req) => {
     env: { ...process.env, TERMTUNNEL: '1' },
   });
 
-  // Attach to (or create) persistent tmux session
+  // Attach to (or create) tmux session.
+  // If the target session already exists, use a grouped session so the phone
+  // gets its own terminal size and doesn't resize the original.
   if (TMUX) {
-    ptyProcess.write(`exec ${TMUX} new-session -A -s ${sessionName} -e TERMTUNNEL=1\r`);
+    let tmuxCmd;
+    try {
+      execSync(`${TMUX} has-session -t "${sessionName}" 2>/dev/null`);
+      // Session exists — mirror it via grouped session
+      const phoneSession = `tt_ph_${sessionName}`;
+      tmuxCmd = `exec ${TMUX} new-session -A -s "${phoneSession}" -t "${sessionName}" -e TERMTUNNEL=1\r`;
+    } catch {
+      // Session doesn't exist — create it fresh
+      tmuxCmd = `exec ${TMUX} new-session -s "${sessionName}" -e TERMTUNNEL=1\r`;
+    }
+    ptyProcess.write(tmuxCmd);
   }
 
   send({ type: 'status', data: 'connected' });
@@ -132,6 +145,10 @@ wss.on('connection', (ws, req) => {
     console.log(`[WS] Client disconnected (${code})`);
     clearTimeout(flushTimer);
     ptyProcess.kill();
+    // Clean up the grouped phone session if it was created
+    if (TMUX) {
+      try { execSync(`${TMUX} kill-session -t "tt_ph_${sessionName}" 2>/dev/null`); } catch {}
+    }
   });
 
   ws.on('error', (err) => {

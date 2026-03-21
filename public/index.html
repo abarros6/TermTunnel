@@ -745,6 +745,7 @@
         <div class="field d-none" id="field-session">
           <label>Session</label>
           <select id="inp-session"></select>
+          <input type="text" id="inp-session-new" class="d-none" placeholder="new session name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="margin-top:8px">
         </div>
 
         <button id="connect-btn">CONNECT</button>
@@ -1273,6 +1274,8 @@
     } catch { return []; }
   }
 
+  const inpSessionNew = document.getElementById('inp-session-new');
+
   async function refreshSessions() {
     const host = getHost();
     const port = document.getElementById('inp-port').value.trim() || '3000';
@@ -1281,15 +1284,24 @@
       const r = await fetch(`http://${host}:${port}/api/sessions`);
       if (!r.ok) { fieldSession.classList.add('d-none'); return; }
       const { sessions } = await r.json();
-      if (!sessions || sessions.length === 0) { fieldSession.classList.add('d-none'); return; }
       const saved = loadConn();
-      selSession.innerHTML = sessions.map(s =>
+      selSession.innerHTML = (sessions || []).map(s =>
         `<option value="${s}">${s}</option>`
-      ).join('');
-      if (saved.session && sessions.includes(saved.session)) selSession.value = saved.session;
+      ).join('') + '<option value="__new__">＋  New session…</option>';
+      if (saved.session && sessions && sessions.includes(saved.session)) selSession.value = saved.session;
+      inpSessionNew.classList.add('d-none');
       fieldSession.classList.remove('d-none');
     } catch { fieldSession.classList.add('d-none'); }
   }
+
+  selSession.addEventListener('change', () => {
+    if (selSession.value === '__new__') {
+      inpSessionNew.classList.remove('d-none');
+      inpSessionNew.focus();
+    } else {
+      inpSessionNew.classList.add('d-none');
+    }
+  });
 
   function populatePeers(peers, savedHost) {
     selHost.innerHTML = '<option value="">Select device…</option>' +
@@ -1346,9 +1358,10 @@
   document.getElementById('connect-btn').addEventListener('click', () => {
     const host = getHost();
     const port = document.getElementById('inp-port').value.trim() || '3000';
-    const session = fieldSession.classList.contains('d-none')
-      ? 'termtunnel'
-      : (selSession.value || 'termtunnel');
+    const rawSession = fieldSession.classList.contains('d-none') ? '' : selSession.value;
+    const session = rawSession === '__new__'
+      ? (inpSessionNew.value.trim() || 'termtunnel')
+      : (rawSession || 'termtunnel');
     if (!host) { setError('Host is required'); return; }
     saveConn({ host, port, session });
     saveDevice(host, { port });
