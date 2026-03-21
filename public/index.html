@@ -1099,6 +1099,7 @@
   let fitDebounce = null;
   function doFit() {
     try { fitAddon.fit(); } catch {}
+    term.scrollToBottom();
     if (ws && ws.readyState === WebSocket.OPEN) {
       sendMsg({ type: 'resize', cols: term.cols, rows: term.rows });
     }
