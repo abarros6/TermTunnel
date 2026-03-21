@@ -59,8 +59,19 @@ wss.on('connection', (ws, req) => {
 
   send({ type: 'status', data: 'connected' });
 
+  // Buffer PTY output and flush every 16ms to reduce WebSocket message rate
+  let outputBuf = '';
+  let flushTimer = null;
+  function flushOutput() {
+    flushTimer = null;
+    if (outputBuf) {
+      send({ type: 'data', data: Buffer.from(outputBuf).toString('base64') });
+      outputBuf = '';
+    }
+  }
   ptyProcess.onData((data) => {
-    send({ type: 'data', data: Buffer.from(data).toString('base64') });
+    outputBuf += data;
+    if (!flushTimer) flushTimer = setTimeout(flushOutput, 16);
   });
 
   ptyProcess.onExit(() => {
@@ -82,6 +93,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('close', (code) => {
     console.log(`[WS] Client disconnected (${code})`);
+    clearTimeout(flushTimer);
     ptyProcess.kill();
   });
 
