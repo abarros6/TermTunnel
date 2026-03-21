@@ -384,15 +384,17 @@
     #kb-keyboard {
       flex-shrink: 0;
       background: var(--surface);
-      border-top: 1px solid var(--border);
+      box-shadow: inset 0 1px 0 var(--border);
       overflow: hidden;
       max-height: 0;
       transition: max-height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
-      padding-bottom: env(safe-area-inset-bottom);
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
     }
     #kb-keyboard.open { max-height: 370px; }
 
-    .kb-page { display: none; padding: 6px 4px 0; }
+    .kb-page { display: none; padding: 6px 4px env(safe-area-inset-bottom); }
     .kb-page.active { display: block; }
 
     .kb-row {
@@ -424,6 +426,51 @@
     }
     .kb-key:active { background: #2a3a52; }
 
+    /* Key press callout — pops up from the key like iOS */
+    #kb-callout {
+      position: fixed;
+      z-index: 200;
+      pointer-events: none;
+      background: #2d4060;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px 8px 3px 3px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 6px;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      opacity: 0;
+      transform-origin: bottom center;
+      transform: scaleY(0.4);
+      transition: opacity 0.07s, transform 0.1s cubic-bezier(0.34, 1.4, 0.64, 1);
+    }
+    #kb-callout.visible {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+    .kb-alt-item {
+      min-width: 36px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      font-size: 18px;
+      padding: 0 4px;
+      color: var(--text);
+      align-self: flex-start;
+      margin-top: 4px;
+      height: 42px;
+    }
+    .kb-alt-item.highlighted {
+      background: var(--blue);
+      color: #000;
+    }
+
     .kb-key-wide  { flex: 0 0 56px; }
     .kb-key-space { flex: 1; max-width: 180px; }
     .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
@@ -453,7 +500,7 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 5px;
-      padding: 6px 4px 0;
+      padding: 6px 4px env(safe-area-inset-bottom);
     }
     .kb-macro {
       background: #1c2635;
@@ -765,31 +812,31 @@
       <div class="kb-row">
         <button class="kb-key" data-char="q">q</button>
         <button class="kb-key" data-char="w">w</button>
-        <button class="kb-key" data-char="e">e</button>
+        <button class="kb-key" data-char="e" data-alts='["="]'>e</button>
         <button class="kb-key" data-char="r">r</button>
-        <button class="kb-key" data-char="t">t</button>
-        <button class="kb-key" data-char="y">y</button>
+        <button class="kb-key" data-char="t" data-alts='["|","&amp;"]'>t</button>
+        <button class="kb-key" data-char="y" data-alts='["^"]'>y</button>
         <button class="kb-key" data-char="u">u</button>
-        <button class="kb-key" data-char="i">i</button>
-        <button class="kb-key" data-char="o">o</button>
-        <button class="kb-key" data-char="p">p</button>
+        <button class="kb-key" data-char="i" data-alts='["[","{"]'>i</button>
+        <button class="kb-key" data-char="o" data-alts='["]","}"]'>o</button>
+        <button class="kb-key" data-char="p" data-alts='["\\","~"]'>p</button>
       </div>
       <div class="kb-row">
         <button class="kb-key" data-char="a">a</button>
-        <button class="kb-key" data-char="s">s</button>
-        <button class="kb-key" data-char="d">d</button>
+        <button class="kb-key" data-char="s" data-alts='["$"]'>s</button>
+        <button class="kb-key" data-char="d" data-alts='["~"]'>d</button>
         <button class="kb-key" data-char="f">f</button>
         <button class="kb-key" data-char="g">g</button>
-        <button class="kb-key" data-char="h">h</button>
+        <button class="kb-key" data-char="h" data-alts='["-","_"]'>h</button>
         <button class="kb-key" data-char="j">j</button>
         <button class="kb-key" data-char="k">k</button>
-        <button class="kb-key" data-char="l">l</button>
+        <button class="kb-key" data-char="l" data-alts='["/"]'>l</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-mod kb-key-shift" id="kb-shift">⇧</button>
         <button class="kb-key" data-char="z">z</button>
         <button class="kb-key" data-char="x">x</button>
-        <button class="kb-key" data-char="c">c</button>
+        <button class="kb-key" data-char="c" data-alts='[">"]'>c</button>
         <button class="kb-key" data-char="v">v</button>
         <button class="kb-key" data-char="b">b</button>
         <button class="kb-key" data-char="n">n</button>
@@ -931,6 +978,9 @@
 
 <!-- Toolbar Long-Press Popup -->
 <div id="tb-popup"></div>
+
+<!-- Key press callout (popup above key on tap/hold) -->
+<div id="kb-callout"></div>
 
 <!-- Macro Picker (long-press on ⌨) -->
 <div id="macro-picker">
@@ -1754,25 +1804,77 @@
   document.addEventListener('pointerup',     kbStopRepeat);
   document.addEventListener('pointercancel', kbStopRepeat);
 
-  // Key dispatch — keyboard panel (event delegation)
-  kbKeyboard.addEventListener('pointerdown', (e) => {
-    const key = e.target.closest('[data-send],[data-char]');
-    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
-    e.stopPropagation();
+  // ── Key callout & long-press alternates ─────────────────────────
+  const kbCallout = document.getElementById('kb-callout');
+  let kbLpTimer    = null;
+  let kbLpActive   = false;
+  let kbLpKey      = null;
+  let kbLpAlts     = [];
+  let kbLpHighIdx  = -1;
 
+  function kbCalloutShow(key) {
+    const label = key.dataset.char || key.textContent.trim() || '·';
+    const rect = key.getBoundingClientRect();
+    const h = 72; // key height (38) + extension above (~34)
+    kbCallout.textContent = label;
+    kbCallout.style.cssText =
+      `left:${rect.left}px;top:${rect.bottom - h}px;width:${rect.width}px;height:${h}px`;
+    kbCallout.classList.add('visible');
+  }
+
+  function kbCalloutExpand(key, alts) {
+    kbLpAlts = alts;
+    kbLpHighIdx = -1;
+    const itemW = 42;
+    const totalW = alts.length * itemW + 8;
+    const rect = key.getBoundingClientRect();
+    const h = 72;
+    const left = Math.max(4, Math.min(
+      rect.left + rect.width / 2 - totalW / 2,
+      window.innerWidth - totalW - 4
+    ));
+    kbCallout.innerHTML = alts.map((a, i) =>
+      `<span class="kb-alt-item" data-idx="${i}">${a}</span>`
+    ).join('');
+    kbCallout.style.cssText =
+      `left:${left}px;top:${rect.bottom - h}px;width:${totalW}px;height:${h}px`;
+  }
+
+  function kbCalloutHide() {
+    kbCallout.classList.remove('visible');
+    kbLpActive = false;
+    kbLpKey    = null;
+    kbLpHighIdx = -1;
+    setTimeout(() => { kbCallout.innerHTML = ''; }, 100);
+  }
+
+  function kbAltHighlight(x, y) {
+    const items = kbCallout.querySelectorAll('.kb-alt-item');
+    let found = -1;
+    items.forEach((item, i) => {
+      const r = item.getBoundingClientRect();
+      item.classList.remove('highlighted');
+      if (x >= r.left && x <= r.right && y >= r.top - 24 && y <= r.bottom + 24) found = i;
+    });
+    if (found >= 0) {
+      items[found].classList.add('highlighted');
+      kbLpHighIdx = found;
+    } else {
+      kbLpHighIdx = -1;
+    }
+  }
+
+  // Shared dispatch logic (used by both pointerdown and touchend paths)
+  function kbDispatch(key) {
     let payload;
     if (key.dataset.char !== undefined) {
-      const ch = kbState.shiftActive
-        ? key.dataset.char.toUpperCase()
-        : key.dataset.char;
-
+      const ch = kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char;
       if (kbState.ctrlActive) {
         payload = String.fromCharCode(ch.toLowerCase().charCodeAt(0) - 96);
         clearCtrl();
       } else {
         payload = ch;
       }
-
       if (kbState.shiftActive) {
         kbState.shiftActive = false;
         kbShiftKey.classList.remove('active');
@@ -1783,8 +1885,65 @@
     } else {
       payload = key.dataset.send;
     }
-
     sendData(payload);
+  }
+
+  kbKeyboard.addEventListener('touchstart', (e) => {
+    const key = e.target.closest('.kb-key[data-char],.kb-key[data-send]');
+    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
+    e.preventDefault(); // block iOS text selection, callout, and system highlight
+    clearTimeout(kbLpTimer);
+    kbLpActive = false;
+    kbLpKey    = key;
+    kbCalloutShow(key);
+    const altsRaw = key.dataset.alts;
+    if (altsRaw) {
+      kbLpTimer = setTimeout(() => {
+        kbLpActive = true;
+        const alts = JSON.parse(altsRaw);
+        kbCalloutExpand(key, alts);
+      }, 400);
+    }
+  }, { passive: false });
+
+  kbKeyboard.addEventListener('touchmove', (e) => {
+    if (!kbLpActive) return;
+    const t = e.touches[0];
+    kbAltHighlight(t.clientX, t.clientY);
+  }, { passive: true });
+
+  kbKeyboard.addEventListener('touchend', (e) => {
+    clearTimeout(kbLpTimer);
+    const key = kbLpKey;
+    if (kbLpActive) {
+      if (kbLpHighIdx >= 0) sendData(kbLpAlts[kbLpHighIdx]);
+      // else: held but no alt selected — do nothing
+    } else if (key?.dataset.alts !== undefined) {
+      // Short tap on an alt-capable key: dispatch normally
+      // (pointerdown was suppressed for these keys)
+      kbDispatch(key);
+    }
+    kbCalloutHide();
+  }, { passive: true });
+
+  kbKeyboard.addEventListener('touchcancel', () => {
+    clearTimeout(kbLpTimer);
+    kbCalloutHide();
+  }, { passive: true });
+
+  // Key dispatch — keyboard panel (event delegation)
+  kbKeyboard.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('[data-send],[data-char]');
+    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
+    // Alt-capable keys are dispatched via touchend instead
+    if (key.dataset.alts !== undefined) return;
+    e.stopPropagation();
+
+    kbDispatch(key);
+
+    const payload = key.dataset.char !== undefined
+      ? (kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char)
+      : key.dataset.send;
 
     if (key.hasAttribute('data-repeat')) {
       kbStopRepeat();
