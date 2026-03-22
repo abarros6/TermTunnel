@@ -18,7 +18,6 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.css">
   <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-web-links@0.11.0/lib/addon-web-links.js"></script>
 
   <style>
     :root {
@@ -31,7 +30,8 @@
       --red: #ff4444;
       --text: #b3b1ad;
       --dim: #4a5568;
-      --header-h: 48px;
+      --toolbar-h: 44px;
+      --kb-actual-h: 0px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -50,37 +50,32 @@
       display: flex;
       flex-direction: column;
       height: 100dvh;
-      padding-top: env(safe-area-inset-top);
+      position: relative;
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
 
-    /* ── Header ── */
-    #header {
+    /* ── Status pill (floating overlay) ── */
+    #status-bar {
+      position: absolute;
+      top: calc(10px + env(safe-area-inset-top));
+      right: 12px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      height: var(--header-h);
-      padding: 0 14px;
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      flex-shrink: 0;
+      gap: 9px;
+      background: rgba(16, 22, 32, 0.82);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 7px 11px;
       z-index: 10;
-    }
-
-    #logo {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      color: var(--green);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      touch-action: manipulation;
     }
 
     #status-dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background: var(--dim);
       transition: background 0.3s, box-shadow 0.3s;
@@ -94,40 +89,48 @@
       background: var(--amber);
       animation: pulse 1s ease-in-out infinite;
     }
-    #status-dot.error {
-      background: var(--red);
-    }
+    #status-dot.error { background: var(--red); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
     }
 
-    #header-actions {
-      display: flex;
-      gap: 4px;
-    }
-
-    .icon-btn {
+    #settings-btn {
       background: none;
-      border: 1px solid var(--border);
-      color: var(--text);
-      width: 32px;
-      height: 32px;
-      border-radius: 6px;
-      font-size: 16px;
+      border: none;
+      color: var(--dim);
+      font-size: 15px;
       cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: border-color 0.2s, color 0.2s;
+      padding: 0;
+      line-height: 1;
       -webkit-tap-highlight-color: transparent;
     }
-    .icon-btn:active { border-color: var(--green); color: var(--green); }
+    #settings-btn:active { color: var(--text); }
 
-    .icon-btn.cb-btn { color: var(--blue); border-color: rgba(92, 207, 230, 0.25); padding: 0 10px; width: auto; font-size: 12px; }
-    .icon-btn.cb-btn:active { border-color: var(--blue); }
-    .icon-btn.cb-btn.flash { border-color: var(--blue); background: rgba(92, 207, 230, 0.1); }
+    /* ── Settings action buttons ── */
+    .setting-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .sa-btn {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.05em;
+      padding: 13px 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .sa-btn:active { border-color: var(--green); color: var(--green); }
+    .sa-btn.flash { border-color: var(--blue); color: var(--blue); }
 
     /* ── Terminal Container ── */
     #terminal-wrap {
@@ -242,6 +245,41 @@
       text-align: center;
     }
 
+    .field select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 32px 10px 12px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a8f' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      cursor: pointer;
+    }
+    .field select:focus { border-color: var(--green); }
+    .field select option { background: #141d28; color: var(--text); }
+
+    .manual-link {
+      display: block;
+      font-size: 10px;
+      color: var(--dim);
+      margin-top: 5px;
+      text-align: right;
+      cursor: pointer;
+      letter-spacing: 0.05em;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .manual-link:active { color: var(--text); }
+
+    .d-none { display: none !important; }
+
     /* ── Settings Panel ── */
     #settings-backdrop {
       position: fixed;
@@ -341,22 +379,398 @@
       transform: translateX(18px);
       background: var(--green);
     }
+
+    /* ── Custom Keyboard Panel ── */
+    #kb-keyboard {
+      flex-shrink: 0;
+      background: var(--surface);
+      box-shadow: inset 0 1px 0 var(--border);
+      overflow: hidden;
+      max-height: 0;
+      transition: max-height 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    #kb-keyboard.open { max-height: 370px; }
+
+    .kb-page { display: none; padding: 6px 4px env(safe-area-inset-bottom); }
+    .kb-page.active { display: block; }
+
+    .kb-row {
+      display: flex;
+      justify-content: center;
+      gap: 5px;
+      margin-bottom: 5px;
+      padding: 0 2px;
+    }
+    .kb-key {
+      background: #1c2635;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      height: 38px;
+      flex: 1;
+      min-width: 0;
+      padding: 0 2px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: background 0.08s, border-color 0.08s, color 0.08s;
+    }
+    .kb-key:active { background: #2a3a52; }
+
+    /* Key press callout — pops up from the key like iOS */
+    #kb-callout {
+      position: fixed;
+      z-index: 200;
+      pointer-events: none;
+      background: #2d4060;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px 8px 3px 3px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding-top: 6px;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.4);
+      white-space: nowrap;
+      opacity: 0;
+      transform-origin: bottom center;
+      transform: scaleY(0.4);
+      transition: opacity 0.07s, transform 0.1s cubic-bezier(0.34, 1.4, 0.64, 1);
+    }
+    #kb-callout.visible {
+      opacity: 1;
+      transform: scaleY(1);
+    }
+    .kb-alt-item {
+      min-width: 36px;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      font-size: 18px;
+      padding: 0 4px;
+      color: var(--text);
+      align-self: flex-start;
+      margin-top: 4px;
+      height: 42px;
+    }
+    .kb-alt-item.highlighted {
+      background: var(--blue);
+      color: #000;
+    }
+
+    .kb-key-wide   { flex: 0 0 56px; }
+
+    .kb-key-space  { flex: 1; }
+    .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
+    .kb-key-shift { flex: 0 0 38px; }
+    #kb-page-qwerty.shifted .kb-key[data-char] { text-transform: uppercase; }
+
+    .kb-key-mode { flex: 0 0 48px; font-size: 11px; color: var(--blue); }
+    .kb-key-mode:active { border-color: var(--blue); color: var(--blue); }
+
+    /* Shift-style action key — used in the #+= / 123 toggle row */
+    .kb-key-sym-nav {
+      flex: 0 0 52px;
+      font-size: 11px;
+      background: #141d28;
+      color: var(--dim);
+    }
+    .kb-key-sym-nav:active { background: #1c2a3a; color: var(--text); }
+
+    .kb-mod { color: var(--dim); }
+    .kb-mod.active {
+      color: var(--green);
+      border-color: var(--green);
+      background: rgba(0, 255, 159, 0.08);
+    }
+
+    /* Macro grid */
+    .kb-macro-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      padding: 6px 4px env(safe-area-inset-bottom);
+    }
+    .kb-macro {
+      background: #1c2635;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--blue);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      height: 38px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding: 0 4px;
+      transition: background 0.08s, border-color 0.08s;
+    }
+    .kb-macro:active { background: #2a3a52; border-color: var(--blue); }
+
+    .kb-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 8px 4px;
+    }
+    .kb-footer-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      padding: 6px 8px;
+    }
+    .kb-footer-btn:active { color: var(--text); }
+
+    /* ── Toolbar ── */
+    #kb-toolbar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: var(--kb-actual-h);
+      height: var(--toolbar-h);
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 8px;
+      z-index: 50;
+      transform: translateY(100%);
+      transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1),
+                  bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #kb-toolbar.open { transform: translateY(0); }
+
+    .tb-key {
+      background: none;
+      border: none;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      flex: 1;
+      height: 100%;
+      padding: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      transition: color 0.08s, background 0.08s;
+    }
+    .tb-key:active { color: var(--green); background: rgba(0,255,159,0.06); }
+    #tb-kb-toggle { font-size: 18px; }
+    #tb-kb-toggle.active { color: var(--green); }
+.tb-esc { color: rgba(255, 68, 68, 0.7); }
+    .tb-esc:active { color: var(--red); }
+    #tb-macros {
+      flex: 1;
+      color: var(--dim);
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      border-left: 1px solid var(--border);
+    }
+    #tb-macros.active { color: var(--green); }
+    #tb-macros:active { color: var(--green); background: rgba(0,255,159,0.06); }
+
+    #tb-kb-toggle {
+      flex: 2;
+      color: var(--blue);
+      font-size: 20px;
+      background: rgba(92, 207, 230, 0.08);
+      border-left: 1px solid var(--border);
+    }
+    #tb-kb-toggle:active { background: rgba(92, 207, 230, 0.18); }
+    #tb-kb-toggle.active {
+      color: var(--blue);
+      background: rgba(92, 207, 230, 0.16);
+      border-left-color: rgba(92, 207, 230, 0.3);
+    }
+
+    /* ── Toolbar Long-Press Popup ── */
+    #tb-popup {
+      position: fixed;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      z-index: 54;
+      overflow-y: auto;
+      max-height: 60vh;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(6px);
+      transition: opacity 0.12s, transform 0.12s;
+      min-width: 200px;
+    }
+    #tb-popup.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .tp-item {
+      padding: 12px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .tp-item:last-child { border-bottom: none; }
+    .tp-item.highlighted { background: rgba(0,255,159,0.1); color: var(--green); }
+
+    /* ── Macro Picker ── */
+    #macro-picker {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: calc(var(--toolbar-h) + var(--kb-actual-h) + 6px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      z-index: 52;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    #macro-picker.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .mp-item {
+      padding: 13px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .mp-item:last-child { border-bottom: none; }
+    .mp-item.highlighted {
+      background: rgba(0, 255, 159, 0.1);
+      color: var(--green);
+    }
+
+    /* ── Floating Pill ── */
+    #kb-pill {
+      position: fixed;
+      bottom: calc(12px + env(safe-area-inset-bottom));
+      right: 14px;
+      background: rgba(17, 24, 32, 0.88);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 15px;
+      letter-spacing: 0.12em;
+      padding: 7px 14px;
+      cursor: pointer;
+      z-index: 49;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1),
+                  opacity 0.18s, color 0.18s, border-color 0.18s;
+    }
+    #kb-pill.active {
+      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
+      color: var(--text);
+      border-color: var(--dim);
+    }
+    #kb-pill.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* ── Floating D-Pad ── */
+    #float-dpad {
+      position: fixed;
+      bottom: calc(var(--toolbar-h) + 16px);
+      right: 10px;
+      width: 130px;
+      height: 130px;
+      z-index: 55;
+      background: rgba(14, 22, 32, 0.96);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      clip-path: path('M 43,8 A 8,8 0 0 1 51,0 L 79,0 A 8,8 0 0 1 87,8 L 87,35 A 8,8 0 0 0 95,43 L 122,43 A 8,8 0 0 1 130,51 L 130,79 A 8,8 0 0 1 122,87 L 95,87 A 8,8 0 0 0 87,95 L 87,122 A 8,8 0 0 1 79,130 L 51,130 A 8,8 0 0 1 43,122 L 43,95 A 8,8 0 0 0 35,87 L 8,87 A 8,8 0 0 1 0,79 L 0,51 A 8,8 0 0 1 8,43 L 35,43 A 8,8 0 0 0 43,35 Z');
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      transform: translateY(6px);
+    }
+    #float-dpad.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .fdp-arrow {
+      position: absolute;
+      color: var(--dim);
+      font-size: 22px;
+      line-height: 1;
+      pointer-events: none;
+      transition: color 0.08s, transform 0.08s;
+    }
+    .fdp-arrow.active { color: #3a7aff; }
+    @keyframes fdp-flash {
+      0%   { color: #fff; transform: scale(1.5); }
+      100% { color: #3a7aff; transform: scale(1); }
+    }
+    .fdp-arrow.flash { animation: fdp-flash 0.18s ease-out forwards; }
+    .fdp-up    { top: 0;    left: 43px; right: 43px; height: 43px; display: flex; align-items: center; justify-content: center; }
+    .fdp-down  { bottom: 0; left: 43px; right: 43px; height: 43px; display: flex; align-items: center; justify-content: center; }
+    .fdp-left  { left: 0;   top: 43px; bottom: 43px; width: 43px;  display: flex; align-items: center; justify-content: center; }
+    .fdp-right { right: 0;  top: 43px; bottom: 43px; width: 43px;  display: flex; align-items: center; justify-content: center; }
+    .fdp-dot   {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      pointer-events: none;
+    }
+    .kb-key-dpad { flex: 0 0 40px; font-size: 18px; color: var(--blue); }
+    .kb-key-dpad.active { color: var(--green); border-color: var(--green); background: rgba(0,255,159,0.08); }
   </style>
 </head>
 <body>
 <div id="app">
   <!-- Header -->
-  <div id="header">
-    <div id="logo">
-      <div id="status-dot"></div>
-      TERMTUNNEL ›_
-    </div>
-    <div id="header-actions">
-      <button class="icon-btn cb-btn" id="copy-btn" title="Copy selection">Copy</button>
-      <button class="icon-btn cb-btn" id="paste-btn" title="Paste from clipboard">Paste</button>
-      <button class="icon-btn" id="reconnect-btn" title="Reconnect">⟳</button>
-      <button class="icon-btn" id="settings-btn" title="Settings">⚙</button>
-    </div>
+  <div id="status-bar">
+    <div id="status-dot"></div>
+    <button id="settings-btn" title="Settings">⚙</button>
   </div>
 
   <!-- Terminal + Overlay -->
@@ -368,19 +782,22 @@
         <h2>TERMTUNNEL</h2>
         <p>WebSocket → SSH bridge</p>
 
-        <div class="field-row">
-          <div class="field">
-            <label>Host</label>
-            <input type="text" id="inp-host" placeholder="192.168.1.x" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          </div>
-          <div class="field">
-            <label>Port</label>
-            <input type="number" id="inp-port" placeholder="3000" inputmode="numeric">
-          </div>
+        <div class="field">
+          <label>Host</label>
+          <select id="inp-host-select" class="d-none">
+            <option value="">Select device…</option>
+          </select>
+          <input type="text" id="inp-host" placeholder="100.x.x.x" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+          <span id="toggle-manual" class="manual-link">choose from list</span>
         </div>
         <div class="field">
-          <label>Auth Token</label>
-          <input type="password" id="inp-token" placeholder="paste token here" autocomplete="off">
+          <label>Port</label>
+          <input type="number" id="inp-port" placeholder="3000" inputmode="numeric">
+        </div>
+        <div class="field d-none" id="field-session">
+          <label>Session</label>
+          <select id="inp-session"></select>
+          <input type="text" id="inp-session-new" class="d-none" placeholder="new session name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="margin-top:8px">
         </div>
 
         <button id="connect-btn">CONNECT</button>
@@ -389,12 +806,228 @@
     </div>
   </div>
 
+  <!-- Custom Keyboard -->
+  <div id="kb-keyboard">
+
+    <!-- Page 1: QWERTY -->
+    <div id="kb-page-qwerty" class="kb-page active">
+      <div class="kb-row">
+        <button class="kb-key" data-char="q">q</button>
+        <button class="kb-key" data-char="w">w</button>
+        <button class="kb-key" data-char="e" data-alts='["="]'>e</button>
+        <button class="kb-key" data-char="r">r</button>
+        <button class="kb-key" data-char="t" data-alts='["|","&amp;"]'>t</button>
+        <button class="kb-key" data-char="y" data-alts='["^"]'>y</button>
+        <button class="kb-key" data-char="u">u</button>
+        <button class="kb-key" data-char="i" data-alts='["[","{"]'>i</button>
+        <button class="kb-key" data-char="o" data-alts='["]","}"]'>o</button>
+        <button class="kb-key" data-char="p" data-alts='["\\","~"]'>p</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key" data-char="a">a</button>
+        <button class="kb-key" data-char="s" data-alts='["$"]'>s</button>
+        <button class="kb-key" data-char="d" data-alts='["~"]'>d</button>
+        <button class="kb-key" data-char="f">f</button>
+        <button class="kb-key" data-char="g">g</button>
+        <button class="kb-key" data-char="h" data-alts='["-","_"]'>h</button>
+        <button class="kb-key" data-char="j">j</button>
+        <button class="kb-key" data-char="k">k</button>
+        <button class="kb-key" data-char="l" data-alts='["/"]'>l</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-mod kb-key-shift" id="kb-shift">⇧</button>
+        <button class="kb-key" data-char="z">z</button>
+        <button class="kb-key" data-char="x">x</button>
+        <button class="kb-key" data-char="c" data-alts='[">"]'>c</button>
+        <button class="kb-key" data-char="v">v</button>
+        <button class="kb-key" data-char="b">b</button>
+        <button class="kb-key" data-char="n">n</button>
+        <button class="kb-key" data-char="m">m</button>
+        <button class="kb-key kb-key-wide" data-send="&#x7f;" data-repeat>⌫</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
+        <button class="kb-key kb-key-space" data-send=" "> </button>
+        <button class="kb-key kb-key-dpad" id="kb-dpad-toggle">⊕</button>
+        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+      </div>
+    </div>
+
+    <!-- Page 2: Numbers / Common Symbols -->
+    <div id="kb-page-num" class="kb-page">
+      <div class="kb-row">
+        <button class="kb-key" data-send="1">1</button>
+        <button class="kb-key" data-send="2">2</button>
+        <button class="kb-key" data-send="3">3</button>
+        <button class="kb-key" data-send="4">4</button>
+        <button class="kb-key" data-send="5">5</button>
+        <button class="kb-key" data-send="6">6</button>
+        <button class="kb-key" data-send="7">7</button>
+        <button class="kb-key" data-send="8">8</button>
+        <button class="kb-key" data-send="9">9</button>
+        <button class="kb-key" data-send="0">0</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key" data-send="-">-</button>
+        <button class="kb-key" data-send="/">/</button>
+        <button class="kb-key" data-send=":">:</button>
+        <button class="kb-key" data-send=";">;</button>
+        <button class="kb-key" data-send="(">(</button>
+        <button class="kb-key" data-send=")">)</button>
+        <button class="kb-key" data-send="$">$</button>
+        <button class="kb-key" data-send="&amp;">&amp;</button>
+        <button class="kb-key" data-send="@">@</button>
+        <button class="kb-key" data-send="&quot;">"</button>
+      </div>
+      <!-- shift-style row: #+= nav key on left, delete on right -->
+      <div class="kb-row">
+        <button class="kb-key kb-key-sym-nav" id="kb-sym-btn">#+= </button>
+        <button class="kb-key" data-send=".">.</button>
+        <button class="kb-key" data-send=",">,</button>
+        <button class="kb-key" data-send="?">?</button>
+        <button class="kb-key" data-send="!">!</button>
+        <button class="kb-key" data-send="'">'</button>
+        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;" data-repeat>⌫</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-num">Ctrl</button>
+        <button class="kb-key kb-key-space" data-send=" "> </button>
+        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+      </div>
+    </div>
+
+    <!-- Page 3: Extended Symbols (#+= page) -->
+    <div id="kb-page-sym" class="kb-page">
+      <div class="kb-row">
+        <button class="kb-key" data-send="[">[</button>
+        <button class="kb-key" data-send="]">]</button>
+        <button class="kb-key" data-send="{">{</button>
+        <button class="kb-key" data-send="}">}</button>
+        <button class="kb-key" data-send="#">#</button>
+        <button class="kb-key" data-send="%">%</button>
+        <button class="kb-key" data-send="^">^</button>
+        <button class="kb-key" data-send="*">*</button>
+        <button class="kb-key" data-send="+">+</button>
+        <button class="kb-key" data-send="=">=</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key" data-send="_">_</button>
+        <button class="kb-key" data-send="\">\</button>
+        <button class="kb-key" data-send="|">|</button>
+        <button class="kb-key" data-send="~">~</button>
+        <button class="kb-key" data-send="`">`</button>
+        <button class="kb-key" data-send="<">&lt;</button>
+        <button class="kb-key" data-send=">">&gt;</button>
+        <button class="kb-key" data-send="&amp;">&amp;</button>
+        <button class="kb-key" data-send="'">'</button>
+        <button class="kb-key" data-send="&quot;">"</button>
+      </div>
+      <!-- shift-style row: 123 nav key on left, delete on right -->
+      <div class="kb-row">
+        <button class="kb-key kb-key-sym-nav" id="kb-123-from-sym-btn">123</button>
+        <button class="kb-key" data-send=".">.</button>
+        <button class="kb-key" data-send=",">,</button>
+        <button class="kb-key" data-send="?">?</button>
+        <button class="kb-key" data-send="!">!</button>
+        <button class="kb-key" data-send="-">-</button>
+        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;" data-repeat>⌫</button>
+      </div>
+      <div class="kb-row">
+        <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
+        <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-sym">Ctrl</button>
+        <button class="kb-key kb-key-space" data-send=" "> </button>
+        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+      </div>
+    </div>
+
+    <!-- Page 4: Macros -->
+    <div id="kb-page-macros" class="kb-page">
+      <div class="kb-macro-grid">
+        <!-- tmux -->
+        <button class="kb-macro" data-send="&#x02;">C-b</button>
+        <button class="kb-macro" data-send="&#x02;c">C-b c</button>
+        <button class="kb-macro" data-send="&#x02;n">C-b n</button>
+        <button class="kb-macro" data-send="&#x02;p">C-b p</button>
+        <button class="kb-macro" data-send="&#x02;[">scroll</button>
+        <button class="kb-macro" data-send="&#x02;d">detach</button>
+        <button class="kb-macro" data-send="&#x02;z">zoom</button>
+        <button class="kb-macro" data-send="q">q (exit)</button>
+        <!-- terminal -->
+        <button class="kb-macro" data-send="&#x03;">^C</button>
+        <button class="kb-macro" data-send="&#x04;">^D</button>
+        <button class="kb-macro" data-send="clear&#x0d;">clear</button>
+        <button class="kb-macro" data-send="cd ..&#x0d;">cd ..</button>
+        <!-- git / nav -->
+        <button class="kb-macro" data-send="ls -la&#x0d;">ls -la</button>
+        <button class="kb-macro" data-send="git status&#x0d;">git st</button>
+        <button class="kb-macro" data-send="git add .&#x0d;">git add .</button>
+        <button class="kb-macro" data-send="git diff&#x0d;">git diff</button>
+        <button class="kb-macro" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit</button>
+        <button class="kb-macro" data-send="git log --oneline&#x0d;">git log</button>
+        <button class="kb-macro" data-send="pwd&#x0d;">pwd</button>
+        <button class="kb-macro" data-send="npm run dev&#x0d;">npm dev</button>
+      </div>
+    </div>
+
+  </div>
+
 </div>
+
+<!-- Toolbar Long-Press Popup -->
+<div id="tb-popup"></div>
+
+<!-- Key press callout (popup above key on tap/hold) -->
+<div id="kb-callout"></div>
+
+<!-- Macro Picker (long-press on ⌨) -->
+<div id="macro-picker">
+  <div class="mp-item" data-send="&#x02;">tmux prefix (Ctrl+B)</div>
+  <div class="mp-item" data-send="&#x02;c">tmux new window</div>
+  <div class="mp-item" data-send="&#x02;n">tmux next window</div>
+  <div class="mp-item" data-send="&#x02;p">tmux prev window</div>
+  <div class="mp-item" data-send="&#x02;[">tmux scroll mode</div>
+  <div class="mp-item" data-send="&#x02;d">tmux detach</div>
+  <div class="mp-item" data-send="git status&#x0d;">git status</div>
+  <div class="mp-item" data-send="git add .&#x0d;">git add .</div>
+  <div class="mp-item" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit -m ""</div>
+  <div class="mp-item" data-send="git diff&#x0d;">git diff</div>
+  <div class="mp-item" data-send="git log --oneline&#x0d;">git log --oneline</div>
+  <div class="mp-item" data-send="ls -la&#x0d;">ls -la</div>
+  <div class="mp-item" data-send="cd ..&#x0d;">cd ..</div>
+  <div class="mp-item" data-send="clear&#x0d;">clear</div>
+</div>
+
+<!-- Keyboard Toolbar -->
+<div id="kb-toolbar">
+  <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
+  <button class="tb-key" id="tb-macros">fn</button>
+  <button class="tb-key" id="tb-kb-toggle">⌨</button>
+</div>
+
+<!-- Floating D-Pad -->
+<div id="float-dpad">
+  <span class="fdp-arrow fdp-up">↑</span>
+  <span class="fdp-arrow fdp-left">←</span>
+  <span class="fdp-arrow fdp-right">→</span>
+  <span class="fdp-arrow fdp-down">↓</span>
+  <span class="fdp-dot"></span>
+</div>
+
+<!-- Floating Pill -->
+<button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
 
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
 <div id="settings-panel">
   <h3>SETTINGS</h3>
+  <div class="setting-actions">
+    <button class="sa-btn" id="copy-btn">Copy</button>
+    <button class="sa-btn" id="paste-btn">Paste</button>
+    <button class="sa-btn" id="reconnect-btn">Reconnect</button>
+    <button class="sa-btn" id="switch-btn">Switch Session</button>
+  </div>
   <div class="setting-row">
     <div class="setting-label">Font Size<small>px</small></div>
     <input type="number" id="set-fontsize" value="14" min="8" max="32">
@@ -498,28 +1131,36 @@
   });
 
   fitAddon = new FitAddon.FitAddon();
-  const webLinksAddon = new WebLinksAddon.WebLinksAddon();
   term.loadAddon(fitAddon);
-  term.loadAddon(webLinksAddon);
   term.open(document.getElementById('terminal'));
+
+  // Suppress iOS native keyboard — we'll drive input from a custom keyboard
+  const xtermTextarea = document.querySelector('.xterm-helper-textarea');
+  if (xtermTextarea) xtermTextarea.setAttribute('inputmode', 'none');
 
   term.writeln('\x1b[32mTermTunnel\x1b[0m \x1b[2m— WebSocket SSH Bridge\x1b[0m');
   term.writeln('\x1b[2mEnter connection details to begin.\x1b[0m');
   term.writeln('');
 
   // ── Resize handling ───────────────────────────────────────
+  let fitDebounce = null;
   function doFit() {
     try { fitAddon.fit(); } catch {}
+    term.scrollToBottom();
     if (ws && ws.readyState === WebSocket.OPEN) {
       sendMsg({ type: 'resize', cols: term.cols, rows: term.rows });
     }
   }
+  function scheduleFit() {
+    clearTimeout(fitDebounce);
+    fitDebounce = setTimeout(doFit, 50);
+  }
 
-  const resizeObserver = new ResizeObserver(doFit);
+  const resizeObserver = new ResizeObserver(scheduleFit);
   resizeObserver.observe(document.getElementById('terminal-wrap'));
 
-  window.visualViewport?.addEventListener('resize', doFit);
-  window.addEventListener('resize', doFit);
+  window.visualViewport?.addEventListener('resize', scheduleFit);
+  window.addEventListener('resize', scheduleFit);
 
   // ── Terminal input → WebSocket ────────────────────────────
   term.onData((data) => {
@@ -541,17 +1182,16 @@
   // ── Status dot ───────────────────────────────────────────
   const dot = document.getElementById('status-dot');
   function setStatus(state) {
-    dot.className = '';
-    if (state) dot.classList.add(state);
+    dot.className = state || '';
   }
 
   // ── WebSocket connection ──────────────────────────────────
-  function connect(host, port, token) {
+  function connect(host, port, session = 'termtunnel') {
     clearTimeout(reconnectTimer);
     if (ws) { ws.onclose = null; ws.close(); ws = null; }
 
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${proto}//${host}:${port}/ws${token ? '?token=' + encodeURIComponent(token) : ''}`;
+    const url = `${proto}//${host}:${port}/ws?session=${encodeURIComponent(session)}`;
 
     setStatus('connecting');
     setError('');
@@ -598,14 +1238,9 @@
       setError('Connection failed');
     };
 
-    ws.onclose = (ev) => {
+    ws.onclose = () => {
       setStatus('error');
-      if (ev.code === 4001) {
-        setError('Invalid auth token');
-        showOverlay();
-      } else {
-        scheduleReconnect();
-      }
+      scheduleReconnect();
     };
   }
 
@@ -624,7 +1259,7 @@
     setStatus('connecting');
     reconnectTimer = setTimeout(() => {
       const conn = loadConn();
-      if (conn.host && conn.port) connect(conn.host, conn.port, conn.token || '');
+      if (conn.host && conn.port) connect(conn.host, conn.port, conn.session || 'termtunnel');
     }, delay);
   }
 
@@ -639,7 +1274,7 @@
         const conn = loadConn();
         if (conn.host && conn.port) {
           term.writeln('\r\n\x1b[33m[reconnect] Reconnecting…\x1b[0m');
-          connect(conn.host, conn.port, conn.token || '');
+          connect(conn.host, conn.port, conn.session || 'termtunnel');
         }
       }
     }
@@ -656,23 +1291,132 @@
     document.getElementById('connect-error').textContent = msg;
   }
 
+  // ── Device storage ────────────────────────────────────────
+  const DEVICES_KEY = 'termtunnel_devices';
+  function loadDevices() {
+    try { return JSON.parse(localStorage.getItem(DEVICES_KEY) || '{}'); }
+    catch { return {}; }
+  }
+  function saveDevice(ip, data) {
+    const d = loadDevices();
+    d[ip] = { ...d[ip], ...data };
+    localStorage.setItem(DEVICES_KEY, JSON.stringify(d));
+  }
+
+  // ── Peer / session discovery ──────────────────────────────
+  const selHost = document.getElementById('inp-host-select');
+  const inpHost = document.getElementById('inp-host');
+  const fieldSession = document.getElementById('field-session');
+  const selSession = document.getElementById('inp-session');
+  const toggleManualBtn = document.getElementById('toggle-manual');
+  let manualMode = true;
+
+  function getHost() { return manualMode ? inpHost.value.trim() : selHost.value; }
+
+  async function fetchPeers(host, port) {
+    try {
+      const r = await fetch(`http://${host}:${port}/api/peers`);
+      if (!r.ok) return [];
+      return (await r.json()).peers || [];
+    } catch { return []; }
+  }
+
+  const inpSessionNew = document.getElementById('inp-session-new');
+
+  async function refreshSessions() {
+    const host = getHost();
+    const port = document.getElementById('inp-port').value.trim() || '3000';
+    if (!host) { fieldSession.classList.add('d-none'); return; }
+    try {
+      const r = await fetch(`http://${host}:${port}/api/sessions`);
+      if (!r.ok) { fieldSession.classList.add('d-none'); return; }
+      const { sessions } = await r.json();
+      const saved = loadConn();
+      selSession.innerHTML = (sessions || []).map(s =>
+        `<option value="${s}">${s}</option>`
+      ).join('') + '<option value="__new__">＋  New session…</option>';
+      if (saved.session && sessions && sessions.includes(saved.session)) selSession.value = saved.session;
+      inpSessionNew.classList.add('d-none');
+      fieldSession.classList.remove('d-none');
+    } catch { fieldSession.classList.add('d-none'); }
+  }
+
+  selSession.addEventListener('change', () => {
+    if (selSession.value === '__new__') {
+      inpSessionNew.classList.remove('d-none');
+      inpSessionNew.focus();
+    } else {
+      inpSessionNew.classList.add('d-none');
+    }
+  });
+
+  function populatePeers(peers, savedHost) {
+    selHost.innerHTML = '<option value="">Select device…</option>' +
+      peers.filter(p => p.ip).map(p =>
+        `<option value="${p.ip}">${p.name ? p.name + '  (' + p.ip + ')' : p.ip}</option>`
+      ).join('');
+    if (savedHost) selHost.value = savedHost;
+    // switch to select mode
+    selHost.classList.remove('d-none');
+    inpHost.classList.add('d-none');
+    toggleManualBtn.textContent = 'enter IP manually';
+    manualMode = false;
+  }
+
+  toggleManualBtn.addEventListener('click', () => {
+    manualMode = !manualMode;
+    if (manualMode) {
+      selHost.classList.add('d-none');
+      inpHost.classList.remove('d-none');
+      toggleManualBtn.textContent = 'choose from list';
+      inpHost.focus();
+    } else {
+      selHost.classList.remove('d-none');
+      inpHost.classList.add('d-none');
+      toggleManualBtn.textContent = 'enter IP manually';
+    }
+  });
+
+  selHost.addEventListener('change', () => {
+    const ip = selHost.value;
+    if (!ip) return;
+    const saved = loadDevices()[ip];
+    if (saved?.port) document.getElementById('inp-port').value = saved.port;
+    refreshSessions();
+  });
+
   // ── Connect form ──────────────────────────────────────────
   const conn = loadConn();
-  if (conn.host) document.getElementById('inp-host').value = conn.host;
   if (conn.port) document.getElementById('inp-port').value = conn.port;
-  if (conn.token) document.getElementById('inp-token').value = conn.token;
+
+  // Try to populate peer list from last known host
+  if (conn.host) {
+    const port = conn.port || '3000';
+    fetchPeers(conn.host, port).then(peers => {
+      if (peers.length > 0) {
+        populatePeers(peers, conn.host);
+        refreshSessions();
+      } else {
+        inpHost.value = conn.host;
+      }
+    });
+  }
 
   document.getElementById('connect-btn').addEventListener('click', () => {
-    const host = document.getElementById('inp-host').value.trim();
+    const host = getHost();
     const port = document.getElementById('inp-port').value.trim() || '3000';
-    const token = document.getElementById('inp-token').value.trim();
+    const rawSession = fieldSession.classList.contains('d-none') ? '' : selSession.value;
+    const session = rawSession === '__new__'
+      ? (inpSessionNew.value.trim() || 'termtunnel')
+      : (rawSession || 'termtunnel');
     if (!host) { setError('Host is required'); return; }
-    saveConn({ host, port, token });
-    connect(host, port, token);
+    saveConn({ host, port, session });
+    saveDevice(host, { port });
+    connect(host, port, session);
   });
 
   // Enter key submits form
-  ['inp-host', 'inp-port', 'inp-token'].forEach((id) => {
+  ['inp-host', 'inp-port'].forEach((id) => {
     document.getElementById(id).addEventListener('keydown', (e) => {
       if (e.key === 'Enter') document.getElementById('connect-btn').click();
     });
@@ -680,18 +1424,27 @@
 
   // Auto-connect if saved config exists
   if (conn.host && conn.port) {
-    setTimeout(() => connect(conn.host, conn.port, conn.token || ''), 300);
+    setTimeout(() => connect(conn.host, conn.port, conn.session || 'termtunnel'), 300);
   }
 
   // ── Reconnect button ──────────────────────────────────────
   document.getElementById('reconnect-btn').addEventListener('click', () => {
+    closeSettings();
     reconnectAttempts = 0;
     const c = loadConn();
     if (c.host && c.port) {
-      connect(c.host, c.port, c.token || '');
+      connect(c.host, c.port, c.session || 'termtunnel');
     } else {
       showOverlay();
     }
+  });
+
+  document.getElementById('switch-btn').addEventListener('click', () => {
+    closeSettings();
+    if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    wasConnected = false;
+    setStatus('idle');
+    showOverlay();
   });
 
   // ── Settings panel ────────────────────────────────────────
@@ -725,9 +1478,11 @@
       autoReconnect: document.getElementById('set-reconnect').checked,
     };
     saveSettings(s);
-    term.options.fontSize = s.fontSize;
-    term.options.scrollback = s.scrollback;
-    term.options.cursorStyle = s.cursorStyle;
+    Object.assign(term.options, {
+      fontSize: s.fontSize,
+      scrollback: s.scrollback,
+      cursorStyle: s.cursorStyle,
+    });
     doFit();
   }
 
@@ -742,6 +1497,7 @@
     if (!selection) return;
     navigator.clipboard.writeText(selection).then(() => {
       flashBtn(document.getElementById('copy-btn'));
+      closeSettings();
     }).catch(() => {});
   });
 
@@ -750,6 +1506,7 @@
       if (text) {
         sendData(text);
         flashBtn(document.getElementById('paste-btn'));
+        closeSettings();
       }
     }).catch(() => {});
   });
@@ -758,6 +1515,548 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
+
+  // ── Custom Keyboard ───────────────────────────────────────
+  const kbKeyboard  = document.getElementById('kb-keyboard');
+  const kbToolbar   = document.getElementById('kb-toolbar');
+  const kbPill      = document.getElementById('kb-pill');
+  const floatDpad   = document.getElementById('float-dpad');
+  const kbCtrlKey    = document.getElementById('kb-ctrl');
+  const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
+  const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
+  const kbShiftKey  = document.getElementById('kb-shift');
+  const tbKbToggle  = document.getElementById('tb-kb-toggle');
+  const macroPicker = document.getElementById('macro-picker');
+
+  const kbState = {
+    toolbarOpen: false,
+    keyboardOpen: false,
+    dpadOpen: false,
+    ctrlActive: false,
+    shiftActive: false,
+  };
+
+  function applyKbState() {
+    const showToolbar = kbState.toolbarOpen || kbState.keyboardOpen;
+    if (!kbState.keyboardOpen) kbState.dpadOpen = false;
+
+    // Read layout before writes to avoid interleaved reflows
+    const targetH = kbState.keyboardOpen ? kbKeyboard.scrollHeight : 0;
+
+    // Batch all DOM writes
+    document.documentElement.style.setProperty('--kb-actual-h', targetH + 'px');
+    kbKeyboard.classList.toggle('open', kbState.keyboardOpen);
+    kbToolbar.classList.toggle('open', showToolbar);
+    tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
+    kbPill.classList.toggle('active', showToolbar);
+    kbPill.classList.toggle('hidden', kbState.keyboardOpen);
+    floatDpad.classList.toggle('open', kbState.dpadOpen);
+    document.getElementById('kb-dpad-toggle')?.classList.toggle('active', kbState.dpadOpen);
+  }
+
+  // Refit terminal after keyboard transition completes
+  kbKeyboard.addEventListener('transitionend', scheduleFit);
+
+  // Pill tap — toggle toolbar
+  kbPill.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    if (kbState.keyboardOpen) return;
+    kbState.toolbarOpen = !kbState.toolbarOpen;
+    applyKbState();
+  });
+
+  // Keyboard toggle button in toolbar
+  tbKbToggle.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    kbState.keyboardOpen = !kbState.keyboardOpen;
+    if (!kbState.keyboardOpen) kbState.toolbarOpen = true; // keep toolbar visible
+    applyKbState();
+  });
+
+  // D-pad toggle button (replaces "." on keyboard)
+  document.getElementById('kb-dpad-toggle').addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    kbState.dpadOpen = !kbState.dpadOpen;
+    floatDpad.classList.toggle('open', kbState.dpadOpen);
+    e.currentTarget.classList.toggle('active', kbState.dpadOpen);
+  });
+
+  // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
+  document.addEventListener('pointerdown', (e) => {
+    if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
+    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !floatDpad.contains(e.target)) {
+      kbState.toolbarOpen = false;
+      applyKbState();
+    }
+  });
+
+  // ── Floating D-Pad — unified drag surface ────────────────
+  const DPAD_KEYS_NORMAL = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
+  const DPAD_KEYS_APP    = { up: '\x1bOA', down: '\x1bOB', left: '\x1bOD', right: '\x1bOC' };
+  function dpadKey(dir) {
+    return (term?.modes?.applicationCursorKeysMode ? DPAD_KEYS_APP : DPAD_KEYS_NORMAL)[dir];
+  }
+  const DPAD_DEAD  = 16;  // px dead zone from center
+  const DPAD_DELAY = 320; // ms before repeat starts
+  const DPAD_RATE  = 180; // ms between repeats
+  let dpadDir     = null;
+  let dpadDelay   = null;
+  let dpadRepeat  = null;
+
+  function dpadGetDir(x, y) {
+    const rect = floatDpad.getBoundingClientRect();
+    const dx = x - (rect.left + rect.width  / 2);
+    const dy = y - (rect.top  + rect.height / 2);
+    if (Math.abs(dx) < DPAD_DEAD && Math.abs(dy) < DPAD_DEAD) return null;
+    return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  }
+
+  function dpadFlash(dir) {
+    const el = floatDpad.querySelector(`.fdp-${dir}`);
+    if (!el) return;
+    el.classList.remove('flash');
+    requestAnimationFrame(() => el.classList.add('flash'));
+  }
+
+  function dpadSend(dir) {
+    sendData(dpadKey(dir));
+    dpadFlash(dir);
+  }
+
+  function dpadClearTimers() {
+    clearTimeout(dpadDelay);
+    clearInterval(dpadRepeat);
+    dpadDelay = dpadRepeat = null;
+  }
+
+  function dpadActivate(dir) {
+    if (dir === dpadDir) return;
+    dpadClearTimers();
+    dpadDir = dir;
+    floatDpad.querySelectorAll('.fdp-arrow').forEach(a =>
+      a.classList.toggle('active', a.classList.contains(`fdp-${dir}`))
+    );
+    if (dir) {
+      dpadSend(dir);
+      dpadDelay = setTimeout(() => {
+        dpadRepeat = setInterval(() => dpadSend(dir), DPAD_RATE);
+      }, DPAD_DELAY);
+    }
+  }
+
+  function dpadStop() {
+    dpadClearTimers();
+    dpadDir = null;
+    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active', 'flash'));
+  }
+
+  let dpadLastCenterTap = 0;
+
+  floatDpad.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    const dir = dpadGetDir(t.clientX, t.clientY);
+    if (!dir) {
+      // Centre tap — check for double-tap
+      const now = Date.now();
+      if (now - dpadLastCenterTap < 350) {
+        dpadLastCenterTap = 0;
+        kbState.dpadOpen = false;
+        floatDpad.classList.remove('open');
+        document.getElementById('kb-dpad-toggle').classList.remove('active');
+      } else {
+        dpadLastCenterTap = now;
+      }
+      return;
+    }
+    dpadLastCenterTap = 0;
+    dpadActivate(dir);
+  }, { passive: false });
+
+  floatDpad.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    dpadActivate(dpadGetDir(t.clientX, t.clientY));
+  }, { passive: false });
+
+  floatDpad.addEventListener('touchend',    dpadStop);
+  floatDpad.addEventListener('touchcancel', dpadStop);
+
+  // Page swap helpers
+  const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
+  function showKbPage(id) {
+    KB_PAGES.forEach(p => document.getElementById(p).classList.toggle('active', p === id));
+    document.getElementById('tb-macros').classList.toggle('active', id === 'kb-page-macros');
+  }
+
+  document.getElementById('kb-123-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-num');
+  });
+  document.getElementById('kb-sym-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-sym');
+  });
+  document.getElementById('kb-123-from-sym-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-num');
+  });
+  document.getElementById('kb-abc-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-qwerty');
+  });
+  document.getElementById('kb-abc-from-sym-btn').addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); showKbPage('kb-page-qwerty');
+  });
+  const tbMacros = document.getElementById('tb-macros');
+  tbMacros.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    const onMacros = document.getElementById('kb-page-macros').classList.contains('active');
+    showKbPage(onMacros ? 'kb-page-qwerty' : 'kb-page-macros');
+    tbMacros.classList.toggle('active', !onMacros);
+  });
+
+  // Sticky Ctrl — syncs all ctrl keys
+  const allCtrlKeys = [kbCtrlKey, kbCtrlNumKey, kbCtrlSymKey];
+  function toggleCtrl() {
+    kbState.ctrlActive = !kbState.ctrlActive;
+    allCtrlKeys.forEach(k => k.classList.toggle('active', kbState.ctrlActive));
+  }
+  function clearCtrl() {
+    kbState.ctrlActive = false;
+    allCtrlKeys.forEach(k => k.classList.remove('active'));
+  }
+
+  allCtrlKeys.forEach(k => k.addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleCtrl(); }));
+
+  // ── Long-press macro picker on ⌨ ─────────────────────────
+  let lpTimer = null;
+  let lpActive = false;
+  let lpHighlighted = null;
+
+  function showMacroPicker() {
+    lpActive = true;
+    macroPicker.classList.add('open');
+  }
+  function hideMacroPicker() {
+    lpActive = false;
+    macroPicker.classList.remove('open');
+    if (lpHighlighted) {
+      lpHighlighted.classList.remove('highlighted');
+      lpHighlighted = null;
+    }
+  }
+  function highlightAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const item = el?.closest('.mp-item') || null;
+    if (item === lpHighlighted) return;
+    if (lpHighlighted) lpHighlighted.classList.remove('highlighted');
+    lpHighlighted = item;
+    if (lpHighlighted) lpHighlighted.classList.add('highlighted');
+  }
+
+  tbKbToggle.addEventListener('touchstart', (e) => {
+    lpTimer = setTimeout(() => showMacroPicker(), 400);
+  }, { passive: true });
+
+  tbKbToggle.addEventListener('touchmove', (e) => {
+    if (!lpActive) return;
+    const t = e.touches[0];
+    highlightAt(t.clientX, t.clientY);
+  }, { passive: true });
+
+  tbKbToggle.addEventListener('touchend', (e) => {
+    clearTimeout(lpTimer);
+    if (lpActive) {
+      const payload = lpHighlighted?.dataset.send;
+      hideMacroPicker();
+      if (payload) sendData(payload);
+    }
+    // Short tap (no picker shown) — handled by existing pointerdown on tbKbToggle
+  });
+
+  tbKbToggle.addEventListener('touchcancel', () => {
+    clearTimeout(lpTimer);
+    hideMacroPicker();
+  });
+
+  // Sticky Shift — single class toggle instead of mutating 27 key labels
+  const kbQwertyPage = document.getElementById('kb-page-qwerty');
+  kbShiftKey.addEventListener('pointerdown', (e) => {
+    e.stopPropagation();
+    kbState.shiftActive = !kbState.shiftActive;
+    kbShiftKey.classList.toggle('active', kbState.shiftActive);
+    kbQwertyPage.classList.toggle('shifted', kbState.shiftActive);
+  });
+
+  // Key repeat state (for hold-to-repeat keys like ⌫)
+  let kbRepeatDelay = null;
+  let kbRepeatInterval = null;
+  function kbStopRepeat() {
+    clearTimeout(kbRepeatDelay);
+    clearInterval(kbRepeatInterval);
+    clearTimeout(spaceLpTimer);
+    kbRepeatDelay = kbRepeatInterval = null;
+  }
+  document.addEventListener('pointerup',     kbStopRepeat);
+  document.addEventListener('pointercancel', kbStopRepeat);
+
+  // ── Key callout & long-press alternates ─────────────────────────
+  const kbCallout = document.getElementById('kb-callout');
+  let kbLpTimer    = null;
+  let kbLpActive   = false;
+  let kbLpKey      = null;
+  let kbLpAlts     = [];
+  let kbLpHighIdx  = -1;
+  let spaceLpTimer  = null;
+  let lastSpaceDown = 0;
+
+  function kbCalloutShow(key) {
+    const label = key.dataset.char || key.textContent.trim() || '·';
+    const rect = key.getBoundingClientRect();
+    const h = 72; // key height (38) + extension above (~34)
+    kbCallout.textContent = label;
+    kbCallout.style.cssText =
+      `left:${rect.left}px;top:${rect.bottom - h}px;width:${rect.width}px;height:${h}px`;
+    kbCallout.classList.add('visible');
+  }
+
+  function kbCalloutExpand(key, alts) {
+    kbLpAlts = alts;
+    kbLpHighIdx = -1;
+    const itemW = 42;
+    const totalW = alts.length * itemW + 8;
+    const rect = key.getBoundingClientRect();
+    const h = 72;
+    const left = Math.max(4, Math.min(
+      rect.left + rect.width / 2 - totalW / 2,
+      window.innerWidth - totalW - 4
+    ));
+    kbCallout.innerHTML = alts.map((a, i) =>
+      `<span class="kb-alt-item" data-idx="${i}">${a}</span>`
+    ).join('');
+    kbCallout.style.cssText =
+      `left:${left}px;top:${rect.bottom - h}px;width:${totalW}px;height:${h}px`;
+  }
+
+  function kbCalloutHide() {
+    kbCallout.classList.remove('visible');
+    kbCallout.innerHTML = '';
+    kbLpActive = false;
+    kbLpKey    = null;
+    kbLpHighIdx = -1;
+  }
+
+  function kbAltHighlight(x, y) {
+    const items = kbCallout.querySelectorAll('.kb-alt-item');
+    let found = -1;
+    items.forEach((item, i) => {
+      const r = item.getBoundingClientRect();
+      item.classList.remove('highlighted');
+      if (x >= r.left && x <= r.right && y >= r.top - 24 && y <= r.bottom + 24) found = i;
+    });
+    if (found >= 0) {
+      items[found].classList.add('highlighted');
+      kbLpHighIdx = found;
+    } else {
+      kbLpHighIdx = -1;
+    }
+  }
+
+  // Shared dispatch logic (used by both pointerdown and touchend paths)
+  function kbDispatch(key) {
+    let payload;
+    if (key.dataset.char !== undefined) {
+      const ch = kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char;
+      if (kbState.ctrlActive) {
+        payload = String.fromCharCode(ch.toLowerCase().charCodeAt(0) - 96);
+        clearCtrl();
+      } else {
+        payload = ch;
+      }
+      if (kbState.shiftActive) {
+        kbState.shiftActive = false;
+        kbShiftKey.classList.remove('active');
+        kbQwertyPage.classList.remove('shifted');
+      }
+    } else {
+      payload = key.dataset.send;
+    }
+    sendData(payload);
+  }
+
+  kbKeyboard.addEventListener('touchstart', (e) => {
+    const key = e.target.closest('.kb-key[data-char],.kb-key[data-send]');
+    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
+    e.preventDefault(); // block iOS text selection, callout, and system highlight
+    clearTimeout(kbLpTimer);
+    kbLpActive = false;
+    kbLpKey    = key;
+    kbCalloutShow(key);
+    const altsRaw = key.dataset.alts;
+    if (altsRaw) {
+      kbLpTimer = setTimeout(() => {
+        kbLpActive = true;
+        const alts = JSON.parse(altsRaw);
+        kbCalloutExpand(key, alts);
+      }, 400);
+    }
+  }, { passive: false });
+
+  kbKeyboard.addEventListener('touchmove', (e) => {
+    if (!kbLpActive) return;
+    const t = e.touches[0];
+    kbAltHighlight(t.clientX, t.clientY);
+  }, { passive: true });
+
+  kbKeyboard.addEventListener('touchend', (e) => {
+    clearTimeout(kbLpTimer);
+    const key = kbLpKey;
+    if (kbLpActive) {
+      if (kbLpHighIdx >= 0) sendData(kbLpAlts[kbLpHighIdx]);
+      // else: held but no alt selected — do nothing
+    } else if (key?.dataset.alts !== undefined) {
+      // Short tap on an alt-capable key: dispatch normally
+      // (pointerdown was suppressed for these keys)
+      kbDispatch(key);
+    }
+    kbCalloutHide();
+  }, { passive: true });
+
+  kbKeyboard.addEventListener('touchcancel', () => {
+    clearTimeout(kbLpTimer);
+    kbCalloutHide();
+  }, { passive: true });
+
+  // Key dispatch — keyboard panel (event delegation)
+  kbKeyboard.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('[data-send],[data-char]');
+    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
+    // Alt-capable keys are dispatched via touchend instead
+    if (key.dataset.alts !== undefined) return;
+    e.stopPropagation();
+
+    // Double-tap space → period, long-press space → Tab
+    if (key.classList.contains('kb-key-space')) {
+      const now = Date.now();
+      const gap = now - lastSpaceDown;
+      clearTimeout(spaceLpTimer);
+      if (gap > 100 && gap < 500) {
+        sendData('\x7f. ');
+        lastSpaceDown = 0;
+      } else {
+        sendData(' ');
+        lastSpaceDown = now;
+        spaceLpTimer = setTimeout(() => {
+          sendData('\x7f\x09');
+          lastSpaceDown = 0;
+        }, 500);
+      }
+      return;
+    }
+
+    kbDispatch(key);
+
+    const payload = key.dataset.char !== undefined
+      ? (kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char)
+      : key.dataset.send;
+
+    if (key.hasAttribute('data-repeat')) {
+      kbStopRepeat();
+      kbRepeatDelay = setTimeout(() => {
+        kbRepeatInterval = setInterval(() => sendData(payload), 80);
+      }, 320);
+    }
+  });
+
+  // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
+  kbToolbar.addEventListener('pointerdown', (e) => {
+    const key = e.target.closest('[data-send]');
+    if (!key || key === tbKbToggle) return;
+    if (key.hasAttribute('data-lp')) return;
+    e.stopPropagation();
+    sendData(key.dataset.send);
+  });
+
+  // ── Toolbar long-press system ─────────────────────────────
+  const tbPopup   = document.getElementById('tb-popup');
+  let tbLpTimer   = null;
+  let tbLpActive  = false;
+  let tbLpItems   = [];
+  let tbLpHigh    = null;
+
+  const TB_MENUS = {
+    'tb-esc': [
+      { label: '^\\  SIGQUIT',       send: '\x1c' },
+      { label: 'Alt+.  last arg',    send: '\x1b.' },
+    ],
+  };
+
+  function openTbPopup(btn, items) {
+    tbLpItems = items;
+    tbPopup.innerHTML = items.map((item, i) =>
+      `<div class="tp-item" data-idx="${i}">${item.label}</div>`
+    ).join('');
+
+    const rect = btn.getBoundingClientRect();
+    const popupW = 200;
+    let left = rect.left + rect.width / 2 - popupW / 2;
+    left = Math.max(8, Math.min(left, window.innerWidth - popupW - 8));
+    const bottom = window.innerHeight - rect.top + 6;
+
+    tbPopup.style.cssText = `left:${left}px;bottom:${bottom}px;width:${popupW}px`;
+    tbLpActive = true;
+    tbPopup.classList.add('open');
+  }
+
+  function closeTbPopup() {
+    tbLpActive = false;
+    tbPopup.classList.remove('open');
+    if (tbLpHigh) { tbLpHigh.classList.remove('highlighted'); tbLpHigh = null; }
+  }
+
+  function highlightTbAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const item = el?.closest('.tp-item') || null;
+    if (item === tbLpHigh) return;
+    if (tbLpHigh) tbLpHigh.classList.remove('highlighted');
+    tbLpHigh = item;
+    if (tbLpHigh) tbLpHigh.classList.add('highlighted');
+  }
+
+  // Wire up long-press on each data-lp toolbar button
+  kbToolbar.querySelectorAll('[data-lp]').forEach(btn => {
+    btn.addEventListener('touchstart', (e) => {
+      tbLpTimer = setTimeout(() => {
+        const menu = TB_MENUS[btn.id];
+        if (menu) openTbPopup(btn, menu);
+      }, 400);
+    }, { passive: true });
+
+    btn.addEventListener('touchmove', (e) => {
+      if (!tbLpActive) return;
+      const t = e.touches[0];
+      highlightTbAt(t.clientX, t.clientY);
+    }, { passive: true });
+
+    btn.addEventListener('touchend', (e) => {
+      clearTimeout(tbLpTimer);
+      if (tbLpActive) {
+        const payload = tbLpItems[parseInt(tbLpHigh?.dataset.idx, 10)]?.send;
+        closeTbPopup();
+        if (payload !== undefined) sendData(payload);
+      } else {
+        // Short tap — send the button's own payload
+        sendData(btn.dataset.send);
+      }
+    });
+
+    btn.addEventListener('touchcancel', () => {
+      clearTimeout(tbLpTimer);
+      closeTbPopup();
+    });
+  });
+
+  // Tap outside closes the popup
+  document.addEventListener('pointerdown', (e) => {
+    if (tbLpActive && !tbPopup.contains(e.target)) closeTbPopup();
+  });
 })();
 </script>
 </body>

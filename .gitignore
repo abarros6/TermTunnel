@@ -1,3 +1,18 @@
 node_modules/
 .env
 *.log
+
+# Claude Code (user-specific)
+.claude/settings.local.json
+.claude/projects/
+.claude/plans/
+.claude/memory/
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
