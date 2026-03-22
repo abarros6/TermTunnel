@@ -32,6 +32,7 @@
       --dim: #4a5568;
       --toolbar-h: 44px;
       --kb-actual-h: 0px;
+      --kb-font-size: 22px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -394,24 +395,24 @@
     }
     #kb-keyboard.open { max-height: 370px; }
 
-    .kb-page { display: none; padding: 6px 4px env(safe-area-inset-bottom); }
+    .kb-page { display: none; padding: 8px 3px env(safe-area-inset-bottom); }
     .kb-page.active { display: block; }
 
     .kb-row {
       display: flex;
       justify-content: center;
-      gap: 5px;
-      margin-bottom: 5px;
+      gap: 6px;
+      margin-bottom: 11px;
       padding: 0 2px;
     }
     .kb-key {
       background: #1c2635;
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 5px;
       color: var(--text);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 13px;
-      height: 38px;
+      font-size: var(--kb-font-size);
+      height: 42px;
       flex: 1;
       min-width: 0;
       padding: 0 2px;
@@ -472,10 +473,14 @@
     }
 
     .kb-key-wide   { flex: 0 0 56px; }
+    .kb-key-return { color: var(--green); background: rgba(0,255,159,0.1); border-color: rgba(0,255,159,0.25); }
+    .kb-key-return:active { background: rgba(0,255,159,0.25); }
 
     .kb-key-space  { flex: 1; }
     .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
     .kb-key-shift { flex: 0 0 38px; }
+    .kb-row:nth-child(2) { padding: 0 18px; }
+    .kb-row:nth-child(3) { padding: 0 2px; }
     #kb-page-qwerty.shifted .kb-key[data-char] { text-transform: uppercase; }
 
     .kb-key-mode { flex: 0 0 48px; font-size: 11px; color: var(--blue); }
@@ -592,6 +597,15 @@
     }
     #tb-macros.active { color: var(--green); }
     #tb-macros:active { color: var(--green); background: rgba(0,255,159,0.06); }
+
+    .tb-arrow {
+      font-size: 16px;
+      border-left: 1px solid var(--border);
+      color: var(--blue);
+    }
+    .tb-arrow:active { color: #fff; background: rgba(92,207,230,0.2); }
+    .tb-arrow-h > span { display: inline-block; transform: rotate(90deg); }
+    .tb-arrow.hidden { display: none; }
 
     #tb-kb-toggle {
       flex: 2;
@@ -761,8 +775,6 @@
       background: var(--border);
       pointer-events: none;
     }
-    .kb-key-dpad { flex: 0 0 40px; font-size: 18px; color: var(--blue); }
-    .kb-key-dpad.active { color: var(--green); border-color: var(--green); background: rgba(0,255,159,0.08); }
   </style>
 </head>
 <body>
@@ -849,8 +861,7 @@
         <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl">Ctrl</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
-        <button class="kb-key kb-key-dpad" id="kb-dpad-toggle">⊕</button>
-        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+        <button class="kb-key kb-key-wide kb-key-return" data-send="&#x0d;">↵</button>
       </div>
     </div>
 
@@ -894,7 +905,7 @@
         <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-num">Ctrl</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
-        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+        <button class="kb-key kb-key-wide kb-key-return" data-send="&#x0d;">↵</button>
       </div>
     </div>
 
@@ -938,7 +949,7 @@
         <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
         <button class="kb-key kb-mod kb-key-ctrl" id="kb-ctrl-sym">Ctrl</button>
         <button class="kb-key kb-key-space" data-send=" "> </button>
-        <button class="kb-key kb-key-wide" data-send="&#x0d;">↵</button>
+        <button class="kb-key kb-key-wide kb-key-return" data-send="&#x0d;">↵</button>
       </div>
     </div>
 
@@ -1003,6 +1014,10 @@
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
   <button class="tb-key" id="tb-macros">fn</button>
+  <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[D"><span>↓</span></button>
+  <button class="tb-key tb-arrow" data-send="&#x1b;[A">↑</button>
+  <button class="tb-key tb-arrow" data-send="&#x1b;[B">↓</button>
+  <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[C"><span>↑</span></button>
   <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
@@ -1033,6 +1048,10 @@
     <input type="number" id="set-fontsize" value="14" min="8" max="32">
   </div>
   <div class="setting-row">
+    <div class="setting-label">Keyboard Font Size<small>px</small></div>
+    <input type="number" id="set-kb-fontsize" value="22" min="8" max="40">
+  </div>
+  <div class="setting-row">
     <div class="setting-label">Scrollback<small>lines</small></div>
     <input type="number" id="set-scrollback" value="2000" min="100" max="10000">
   </div>
@@ -1048,6 +1067,20 @@
     <div class="setting-label">Auto-Reconnect<small>on disconnect</small></div>
     <label class="toggle">
       <input type="checkbox" id="set-reconnect" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Toolbar Arrows<small>arrow keys in toolbar</small></div>
+    <label class="toggle">
+      <input type="checkbox" id="set-tb-arrows" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Floating D-Pad<small>on-screen directional pad</small></div>
+    <label class="toggle">
+      <input type="checkbox" id="set-dpad">
       <span class="toggle-slider"></span>
     </label>
   </div>
@@ -1074,6 +1107,9 @@
     scrollback: 2000,
     cursorStyle: 'block',
     autoReconnect: true,
+    kbFontSize: 22,
+    tbArrows: true,
+    floatDpad: false,
   };
 
   function loadSettings() {
@@ -1466,18 +1502,30 @@
 
   // Populate settings UI
   document.getElementById('set-fontsize').value = settings.fontSize;
+  document.getElementById('set-kb-fontsize').value = settings.kbFontSize;
   document.getElementById('set-scrollback').value = settings.scrollback;
   document.getElementById('set-cursor').value = settings.cursorStyle;
   document.getElementById('set-reconnect').checked = settings.autoReconnect;
+  document.getElementById('set-tb-arrows').checked = settings.tbArrows;
+  document.getElementById('set-dpad').checked = settings.floatDpad;
+  document.documentElement.style.setProperty('--kb-font-size', settings.kbFontSize + 'px');
+  document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', !settings.tbArrows));
+  document.getElementById('float-dpad').classList.toggle('open', settings.floatDpad);
 
   function applySettings() {
     const s = {
       fontSize: parseInt(document.getElementById('set-fontsize').value, 10) || 14,
+      kbFontSize: parseInt(document.getElementById('set-kb-fontsize').value, 10) || 22,
       scrollback: parseInt(document.getElementById('set-scrollback').value, 10) || 2000,
       cursorStyle: document.getElementById('set-cursor').value,
       autoReconnect: document.getElementById('set-reconnect').checked,
+      tbArrows: document.getElementById('set-tb-arrows').checked,
+      floatDpad: document.getElementById('set-dpad').checked,
     };
     saveSettings(s);
+    document.documentElement.style.setProperty('--kb-font-size', s.kbFontSize + 'px');
+    document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', !s.tbArrows));
+    document.getElementById('float-dpad').classList.toggle('open', s.floatDpad);
     Object.assign(term.options, {
       fontSize: s.fontSize,
       scrollback: s.scrollback,
@@ -1531,14 +1579,12 @@
   const kbState = {
     toolbarOpen: false,
     keyboardOpen: false,
-    dpadOpen: false,
     ctrlActive: false,
     shiftActive: false,
   };
 
   function applyKbState() {
     const showToolbar = kbState.toolbarOpen || kbState.keyboardOpen;
-    if (!kbState.keyboardOpen) kbState.dpadOpen = false;
 
     // Read layout before writes to avoid interleaved reflows
     const targetH = kbState.keyboardOpen ? kbKeyboard.scrollHeight : 0;
@@ -1550,8 +1596,6 @@
     tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
     kbPill.classList.toggle('active', showToolbar);
     kbPill.classList.toggle('hidden', kbState.keyboardOpen);
-    floatDpad.classList.toggle('open', kbState.dpadOpen);
-    document.getElementById('kb-dpad-toggle')?.classList.toggle('active', kbState.dpadOpen);
   }
 
   // Refit terminal after keyboard transition completes
@@ -1571,14 +1615,6 @@
     kbState.keyboardOpen = !kbState.keyboardOpen;
     if (!kbState.keyboardOpen) kbState.toolbarOpen = true; // keep toolbar visible
     applyKbState();
-  });
-
-  // D-pad toggle button (replaces "." on keyboard)
-  document.getElementById('kb-dpad-toggle').addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    kbState.dpadOpen = !kbState.dpadOpen;
-    floatDpad.classList.toggle('open', kbState.dpadOpen);
-    e.currentTarget.classList.toggle('active', kbState.dpadOpen);
   });
 
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
@@ -1661,9 +1697,11 @@
       const now = Date.now();
       if (now - dpadLastCenterTap < 350) {
         dpadLastCenterTap = 0;
-        kbState.dpadOpen = false;
+        const s = loadSettings();
+        s.floatDpad = false;
+        saveSettings(s);
+        document.getElementById('set-dpad').checked = false;
         floatDpad.classList.remove('open');
-        document.getElementById('kb-dpad-toggle').classList.remove('active');
       } else {
         dpadLastCenterTap = now;
       }
