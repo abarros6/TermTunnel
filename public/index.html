@@ -98,7 +98,7 @@
       50% { opacity: 0.3; }
     }
 
-    #pane-btn {
+    #pane-btn, #scroll-btn {
       background: none;
       border: none;
       color: var(--dim);
@@ -112,6 +112,8 @@
     }
     #pane-btn.active { color: var(--amber); }
     #pane-btn:active { opacity: 0.7; }
+    #scroll-btn.active { color: var(--amber); }
+    #scroll-btn:active { opacity: 0.7; }
 
     #settings-btn {
       background: none;
@@ -864,6 +866,7 @@
   <div id="status-bar">
     <div id="status-dot"></div>
     <button id="pane-btn" class="d-none" title="Toggle pane navigation">P0</button>
+    <button id="scroll-btn" class="d-none" title="Toggle scroll mode">SCR</button>
     <button id="settings-btn" title="Settings">⚙</button>
   </div>
   <div id="reconnect-toast"></div>
@@ -1028,13 +1031,13 @@
     <div id="kb-page-macros" class="kb-page">
       <div class="kb-macro-grid">
         <!-- tmux -->
-        <button class="kb-macro" data-send="&#x02;">C-b</button>
-        <button class="kb-macro" data-send="&#x02;c">C-b c</button>
-        <button class="kb-macro" data-send="&#x02;n">C-b n</button>
-        <button class="kb-macro" data-send="&#x02;p">C-b p</button>
-        <button class="kb-macro" data-send="&#x02;[">scroll</button>
-        <button class="kb-macro" data-send="&#x02;d">detach</button>
-        <button class="kb-macro" data-send="&#x02;z">zoom</button>
+        <button class="kb-macro" data-send="&#x02;" data-tmux-cmd="prefix">C-b</button>
+        <button class="kb-macro" data-send="&#x02;c" data-tmux-cmd="newWindow">C-b c</button>
+        <button class="kb-macro" data-send="&#x02;n" data-tmux-cmd="nextWindow">C-b n</button>
+        <button class="kb-macro" data-send="&#x02;p" data-tmux-cmd="prevWindow">C-b p</button>
+        <button class="kb-macro" data-send="&#x02;[" data-tmux-cmd="copyMode">scroll</button>
+        <button class="kb-macro" data-send="&#x02;d" data-tmux-cmd="detach">detach</button>
+        <button class="kb-macro" data-send="&#x02;z" data-tmux-cmd="zoom">zoom</button>
         <button class="kb-macro" data-send="q">q (exit)</button>
         <!-- terminal -->
         <button class="kb-macro" data-send="&#x03;">^C</button>
@@ -1065,12 +1068,12 @@
 
 <!-- Macro Picker (long-press on ⌨) -->
 <div id="macro-picker">
-  <div class="mp-item" data-send="&#x02;">tmux prefix (Ctrl+B)</div>
-  <div class="mp-item" data-send="&#x02;c">tmux new window</div>
-  <div class="mp-item" data-send="&#x02;n">tmux next window</div>
-  <div class="mp-item" data-send="&#x02;p">tmux prev window</div>
-  <div class="mp-item" data-send="&#x02;[">tmux scroll mode</div>
-  <div class="mp-item" data-send="&#x02;d">tmux detach</div>
+  <div class="mp-item" data-send="&#x02;" data-tmux-cmd="prefix">tmux prefix (Ctrl+B)</div>
+  <div class="mp-item" data-send="&#x02;c" data-tmux-cmd="newWindow">tmux new window</div>
+  <div class="mp-item" data-send="&#x02;n" data-tmux-cmd="nextWindow">tmux next window</div>
+  <div class="mp-item" data-send="&#x02;p" data-tmux-cmd="prevWindow">tmux prev window</div>
+  <div class="mp-item" data-send="&#x02;[" data-tmux-cmd="copyMode">tmux scroll mode</div>
+  <div class="mp-item" data-send="&#x02;d" data-tmux-cmd="detach">tmux detach</div>
   <div class="mp-item" data-send="git status&#x0d;">git status</div>
   <div class="mp-item" data-send="git add .&#x0d;">git add .</div>
   <div class="mp-item" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit -m ""</div>
@@ -1112,8 +1115,6 @@
     <button id="settings-close-btn" aria-label="Close settings">✕</button>
   </div>
   <div class="setting-actions">
-    <button class="sa-btn" id="copy-btn">Copy</button>
-    <button class="sa-btn" id="paste-btn">Paste</button>
     <button class="sa-btn" id="reconnect-btn">Reconnect</button>
     <button class="sa-btn" id="switch-btn">Switch Session</button>
   </div>
@@ -1343,6 +1344,55 @@
     paneBtn.classList.toggle('active', paneNavMode);
   });
 
+  // ── Scroll mode toggle ────────────────────────────────────
+  let scrollMode = false;
+  let keybinds = {}; // updated on connect from server
+  const scrollBtn = document.getElementById('scroll-btn');
+  const termEl = document.getElementById('terminal');
+
+  function applyKeybinds(kb) {
+    keybinds = kb;
+    document.querySelectorAll('[data-tmux-cmd]').forEach(el => {
+      const seq = kb[el.dataset.tmuxCmd];
+      if (seq !== undefined) el.dataset.send = seq;
+    });
+  }
+
+  // Touch-swipe → xterm scrollback
+  let scrollTouchY = null;
+  function onScrollTouchStart(e) {
+    scrollTouchY = e.touches[0].clientY;
+  }
+  function onScrollTouchMove(e) {
+    if (scrollTouchY === null) return;
+    e.preventDefault();
+    const dy = scrollTouchY - e.touches[0].clientY;
+    const lineH = Math.ceil(term.options.fontSize * term.options.lineHeight);
+    const lines = Math.round(dy / lineH);
+    if (lines !== 0) {
+      term.scrollLines(lines);
+      scrollTouchY = e.touches[0].clientY;
+    }
+  }
+  function onScrollTouchEnd() { scrollTouchY = null; }
+
+  function setScrollMode(on) {
+    scrollMode = on;
+    scrollBtn.classList.toggle('active', on);
+    if (on) {
+      termEl.addEventListener('touchstart', onScrollTouchStart, { passive: true });
+      termEl.addEventListener('touchmove',  onScrollTouchMove,  { passive: false });
+      termEl.addEventListener('touchend',   onScrollTouchEnd,   { passive: true });
+    } else {
+      termEl.removeEventListener('touchstart', onScrollTouchStart);
+      termEl.removeEventListener('touchmove',  onScrollTouchMove);
+      termEl.removeEventListener('touchend',   onScrollTouchEnd);
+      term.scrollToBottom();
+    }
+  }
+
+  scrollBtn.addEventListener('click', () => setScrollMode(!scrollMode));
+
   // ── Reconnect toast ───────────────────────────────────────
   const reconnectToast = document.getElementById('reconnect-toast');
   function showReconnectToast(msg) {
@@ -1386,15 +1436,19 @@
       } else if (msg.type === 'status') {
         if (msg.data === 'connected') {
           wasConnected = true;
+          if (msg.keybinds) applyKeybinds(msg.keybinds);
           hideOverlay();
           hideReconnectToast();
           setStatus('connected');
           doFit();
           term.focus();
+          scrollBtn.classList.remove('d-none');
           startPanePolling();
         } else if (msg.data === 'disconnected') {
           if (ws) ws.onclose = null;
           setStatus('idle');
+          setScrollMode(false);
+          scrollBtn.classList.add('d-none');
           stopPanePolling();
           scheduleReconnect();
         }
@@ -1610,25 +1664,6 @@
     btn.classList.add('flash');
     setTimeout(() => btn.classList.remove('flash'), 300);
   }
-
-  document.getElementById('copy-btn').addEventListener('click', () => {
-    const selection = term.getSelection();
-    closeSettings();
-    if (!selection) return;
-    navigator.clipboard.writeText(selection).then(() => {
-      flashBtn(document.getElementById('copy-btn'));
-    }).catch(() => {});
-  });
-
-  document.getElementById('paste-btn').addEventListener('click', () => {
-    closeSettings();
-    navigator.clipboard.readText().then((text) => {
-      if (text) {
-        sendData(text);
-        flashBtn(document.getElementById('paste-btn'));
-      }
-    }).catch(() => {});
-  });
 
   // ── Service Worker ────────────────────────────────────────
   if ('serviceWorker' in navigator) {

@@ -17,6 +17,68 @@ const TMUX = (() => {
   catch { return null; }
 })();
 
+// Detect tmux prefix and key bindings. Falls back to C-b defaults.
+const TMUX_KEYBINDS = (() => {
+  // Convert a tmux key name to the actual bytes to send
+  function keyChar(k) {
+    const cx = k.match(/^C-(.+)$/i);
+    if (cx) {
+      const c = cx[1].toLowerCase();
+      return c === 'space' ? '\x00' : String.fromCharCode(c.charCodeAt(0) - 96);
+    }
+    const mx = k.match(/^M-(.+)$/i);
+    if (mx) return '\x1b' + mx[1];
+    return { Space: ' ', Enter: '\r', Tab: '\t', Escape: '\x1b', BSpace: '\x7f' }[k] ?? k;
+  }
+
+  let pfx = '\x02'; // C-b default
+  const kb = {
+    prefix: pfx,
+    newWindow: pfx + 'c',
+    nextWindow: pfx + 'n',
+    prevWindow: pfx + 'p',
+    copyMode: pfx + '[',
+    detach: pfx + 'd',
+    zoom: pfx + 'z',
+  };
+  if (!TMUX) return kb;
+  try {
+    // Detect prefix key (handles C-x, plain chars like `, named keys)
+    const prefixOut = execSync(`${TMUX} show-options -g prefix 2>/dev/null`).toString().trim();
+    const pm = prefixOut.match(/^prefix\s+(.+)$/);
+    if (pm) pfx = keyChar(pm[1].trim());
+    kb.prefix = pfx;
+
+    // Map tmux command → keybinds property (first match wins)
+    const wanted = {
+      'new-window':     'newWindow',
+      'next-window':    'nextWindow',
+      'previous-window':'prevWindow',
+      'copy-mode':      'copyMode',
+      'detach-client':  'detach',
+      'resize-pane -Z': 'zoom',
+    };
+    const found = new Set();
+
+    const keysOut = execSync(`${TMUX} list-keys -T prefix 2>/dev/null`).toString();
+    for (const line of keysOut.split('\n')) {
+      // handles optional -r flag: bind-key [-r] -T prefix <key> <cmd>
+      const m = line.match(/^bind-key\s+(?:-r\s+)?-T\s+prefix\s+(\S+)\s+(.+)$/);
+      if (!m) continue;
+      const [, key, cmd] = m;
+      for (const [tmuxCmd, prop] of Object.entries(wanted)) {
+        if (!found.has(prop) && cmd.trim().startsWith(tmuxCmd)) {
+          kb[prop] = pfx + keyChar(key);
+          found.add(prop);
+          break;
+        }
+      }
+    }
+  } catch {}
+  console.log(`[TermTunnel] tmux prefix: ${JSON.stringify(kb.prefix)}, keybinds:`, Object.fromEntries(Object.entries(kb).map(([k,v]) => [k, JSON.stringify(v)])));
+  return kb;
+})();
+
 const app = express();
 app.use(express.static(resolve(__dirname, 'public')));
 
@@ -124,7 +186,7 @@ wss.on('connection', (ws, req) => {
     ptyProcess.write(tmuxCmd);
   }
 
-  send({ type: 'status', data: 'connected' });
+  send({ type: 'status', data: 'connected', keybinds: TMUX_KEYBINDS });
 
   // For grouped sessions, keep the active pane zoomed so the phone sees a
   // full-screen view. Re-check on every resize (keyboard open/close, orientation
