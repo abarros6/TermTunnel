@@ -398,6 +398,13 @@
       border-bottom: 1px solid var(--border);
     }
     .setting-row:last-child { border-bottom: none; }
+    #update-status {
+      font-size: 11px;
+      color: var(--dim);
+      padding: 6px 0 4px;
+      min-height: 0;
+    }
+    #update-status.has-update { color: var(--green); }
     .setting-label {
       font-size: 12px;
       color: var(--text);
@@ -1159,6 +1166,11 @@
       <span class="toggle-slider"></span>
     </label>
   </div>
+  <div class="setting-row" id="version-row">
+    <div class="setting-label">Version<small id="version-hash">—</small></div>
+    <button class="sa-btn" id="check-update-btn">Check</button>
+  </div>
+  <div id="update-status"></div>
 </div>
 
 <script>
@@ -1605,12 +1617,46 @@
   function openSettings() {
     backdrop.classList.add('open');
     panel.classList.add('open');
+    fetchVersion();
   }
   function closeSettings() {
     backdrop.classList.remove('open');
     panel.classList.remove('open');
     applySettings();
   }
+
+  // ── Version / update check ────────────────────────────────
+  function fetchVersion() {
+    fetch('/api/version')
+      .then(r => r.json())
+      .then(v => {
+        document.getElementById('version-hash').textContent = `${v.shortHash} · ${v.branch}`;
+      })
+      .catch(() => {});
+  }
+
+  document.getElementById('check-update-btn').addEventListener('click', () => {
+    const btn = document.getElementById('check-update-btn');
+    const status = document.getElementById('update-status');
+    btn.disabled = true;
+    btn.textContent = '…';
+    status.textContent = '';
+    status.className = '';
+    fetch('/api/check-update')
+      .then(r => r.json())
+      .then(data => {
+        if (data.error) {
+          status.textContent = 'Check failed — is git available on the server?';
+        } else if (data.upToDate) {
+          status.textContent = 'Up to date.';
+        } else {
+          status.textContent = `${data.behind} commit${data.behind === 1 ? '' : 's'} behind — run update.sh in the terminal.`;
+          status.classList.add('has-update');
+        }
+      })
+      .catch(() => { status.textContent = 'Check failed.'; })
+      .finally(() => { btn.disabled = false; btn.textContent = 'Check'; });
+  });
 
   document.getElementById('settings-btn').addEventListener('click', openSettings);
   document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
