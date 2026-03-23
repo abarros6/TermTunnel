@@ -98,6 +98,21 @@
       50% { opacity: 0.3; }
     }
 
+    #pane-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      padding: 0 2px;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #pane-btn.active { color: var(--amber); }
+    #pane-btn:active { opacity: 0.7; }
+
     #settings-btn {
       background: none;
       border: none;
@@ -241,13 +256,6 @@
     .field input:focus { border-color: var(--green); }
     .field input::placeholder { color: var(--dim); }
 
-    .field-row {
-      display: flex;
-      gap: 10px;
-    }
-    .field-row .field { flex: 1; }
-    .field-row .field:last-child { flex: 0 0 90px; }
-
     #connect-btn {
       width: 100%;
       padding: 12px;
@@ -264,6 +272,7 @@
       transition: opacity 0.2s;
     }
     #connect-btn:active { opacity: 0.8; }
+    #connect-btn:disabled { background: var(--dim); cursor: default; opacity: 0.5; }
 
     #connect-error {
       font-size: 11px;
@@ -294,17 +303,6 @@
     .field select:focus { border-color: var(--green); }
     .field select option { background: #141d28; color: var(--text); }
 
-    .manual-link {
-      display: block;
-      font-size: 10px;
-      color: var(--dim);
-      margin-top: 5px;
-      text-align: right;
-      cursor: pointer;
-      letter-spacing: 0.05em;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .manual-link:active { color: var(--text); }
 
     .d-none { display: none !important; }
 
@@ -865,6 +863,7 @@
   <!-- Header -->
   <div id="status-bar">
     <div id="status-dot"></div>
+    <button id="pane-btn" class="d-none" title="Toggle pane navigation">P0</button>
     <button id="settings-btn" title="Settings">⚙</button>
   </div>
   <div id="reconnect-toast"></div>
@@ -876,27 +875,15 @@
     <div id="connect-overlay">
       <div class="connect-card">
         <h2>TERMTUNNEL</h2>
-        <p>WebSocket → SSH bridge</p>
+        <p id="connect-subtitle">Connecting to server…</p>
 
-        <div class="field">
-          <label>Host</label>
-          <select id="inp-host-select" class="d-none">
-            <option value="">Select device…</option>
-          </select>
-          <input type="text" id="inp-host" placeholder="100.x.x.x" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-          <span id="toggle-manual" class="manual-link">choose from list</span>
-        </div>
-        <div class="field">
-          <label>Port</label>
-          <input type="number" id="inp-port" placeholder="3000" inputmode="numeric">
-        </div>
-        <div class="field d-none" id="field-session">
+        <div class="field" id="field-session">
           <label>Session</label>
           <select id="inp-session"></select>
           <input type="text" id="inp-session-new" class="d-none" placeholder="new session name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="margin-top:8px">
         </div>
 
-        <button id="connect-btn">CONNECT</button>
+        <button id="connect-btn" disabled>CONNECT</button>
         <div id="connect-error"></div>
       </div>
     </div>
@@ -1185,6 +1172,10 @@
   const MAX_RECONNECT = 5;
   const RECONNECT_CAP = 15000;
 
+  // ── Origin (PWA is per-machine; host/port come from window.location) ─────
+  const ORIGIN_HOST = window.location.hostname;
+  const ORIGIN_PORT = window.location.port || '3000';
+
   // ── Settings persistence ─────────────────────────────────
   const SETTINGS_KEY = 'termtunnel_settings';
   const CONN_KEY = 'termtunnel_conn';
@@ -1308,6 +1299,50 @@
     dot.className = state || '';
   }
 
+  // ── Pane navigation ──────────────────────────────────────
+  let paneNavMode = false;
+  let paneTimer = null;
+  const paneBtn = document.getElementById('pane-btn');
+  const ARROW_DIRS = { '\x1b[A': 'up', '\x1b[B': 'down', '\x1b[C': 'right', '\x1b[D': 'left' };
+
+  async function pollPanes() {
+    const { session } = loadConn();
+    try {
+      const r = await fetch(`/api/panes?session=${encodeURIComponent(session || 'termtunnel')}`);
+      if (!r.ok) throw new Error();
+      const { active, total } = await r.json();
+      if (total > 1) {
+        paneBtn.textContent = `P${active}`;
+        paneBtn.classList.remove('d-none');
+      } else {
+        paneBtn.classList.add('d-none');
+        paneNavMode = false;
+        paneBtn.classList.remove('active');
+      }
+    } catch {
+      paneBtn.classList.add('d-none');
+    }
+  }
+
+  function startPanePolling() {
+    stopPanePolling();
+    pollPanes();
+    paneTimer = setInterval(pollPanes, 1000);
+  }
+
+  function stopPanePolling() {
+    clearInterval(paneTimer);
+    paneTimer = null;
+    paneNavMode = false;
+    paneBtn.classList.add('d-none');
+    paneBtn.classList.remove('active');
+  }
+
+  paneBtn.addEventListener('click', () => {
+    paneNavMode = !paneNavMode;
+    paneBtn.classList.toggle('active', paneNavMode);
+  });
+
   // ── Reconnect toast ───────────────────────────────────────
   const reconnectToast = document.getElementById('reconnect-toast');
   function showReconnectToast(msg) {
@@ -1356,9 +1391,11 @@
           setStatus('connected');
           doFit();
           term.focus();
+          startPanePolling();
         } else if (msg.data === 'disconnected') {
           if (ws) ws.onclose = null;
           setStatus('idle');
+          stopPanePolling();
           scheduleReconnect();
         }
       } else if (msg.type === 'error') {
@@ -1375,6 +1412,7 @@
 
     ws.onclose = () => {
       setStatus('error');
+      stopPanePolling();
       scheduleReconnect();
     };
   }
@@ -1393,8 +1431,8 @@
     showReconnectToast(`Reconnecting ${reconnectAttempts}/${MAX_RECONNECT}…`);
     setStatus('connecting');
     reconnectTimer = setTimeout(() => {
-      const conn = loadConn();
-      if (conn.host && conn.port) connect(conn.host, conn.port, conn.session || 'termtunnel');
+      const { session } = loadConn();
+      connect(ORIGIN_HOST, ORIGIN_PORT, session || 'termtunnel');
     }, delay);
   }
 
@@ -1406,10 +1444,8 @@
       if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
         clearTimeout(reconnectTimer);
         reconnectAttempts = 0;
-        const conn = loadConn();
-        if (conn.host && conn.port) {
-          connect(conn.host, conn.port, conn.session || 'termtunnel');
-        }
+        const { session } = loadConn();
+        connect(ORIGIN_HOST, ORIGIN_PORT, session || 'termtunnel');
       }
     }
   });
@@ -1426,54 +1462,9 @@
   }
 
   // ── Device storage ────────────────────────────────────────
-  const DEVICES_KEY = 'termtunnel_devices';
-  function loadDevices() {
-    try { return JSON.parse(localStorage.getItem(DEVICES_KEY) || '{}'); }
-    catch { return {}; }
-  }
-  function saveDevice(ip, data) {
-    const d = loadDevices();
-    d[ip] = { ...d[ip], ...data };
-    localStorage.setItem(DEVICES_KEY, JSON.stringify(d));
-  }
-
-  // ── Peer / session discovery ──────────────────────────────
-  const selHost = document.getElementById('inp-host-select');
-  const inpHost = document.getElementById('inp-host');
-  const fieldSession = document.getElementById('field-session');
+  // ── Session picker ────────────────────────────────────────
   const selSession = document.getElementById('inp-session');
-  const toggleManualBtn = document.getElementById('toggle-manual');
-  let manualMode = true;
-
-  function getHost() { return manualMode ? inpHost.value.trim() : selHost.value; }
-
-  async function fetchPeers(host, port) {
-    try {
-      const r = await fetch(`http://${host}:${port}/api/peers`);
-      if (!r.ok) return [];
-      return (await r.json()).peers || [];
-    } catch { return []; }
-  }
-
   const inpSessionNew = document.getElementById('inp-session-new');
-
-  async function refreshSessions() {
-    const host = getHost();
-    const port = document.getElementById('inp-port').value.trim() || '3000';
-    if (!host) { fieldSession.classList.add('d-none'); return; }
-    try {
-      const r = await fetch(`http://${host}:${port}/api/sessions`);
-      if (!r.ok) { fieldSession.classList.add('d-none'); return; }
-      const { sessions } = await r.json();
-      const saved = loadConn();
-      selSession.innerHTML = (sessions || []).map(s =>
-        `<option value="${s}">${s}</option>`
-      ).join('') + '<option value="__new__">＋  New session…</option>';
-      if (saved.session && sessions && sessions.includes(saved.session)) selSession.value = saved.session;
-      inpSessionNew.classList.add('d-none');
-      fieldSession.classList.remove('d-none');
-    } catch { fieldSession.classList.add('d-none'); }
-  }
 
   selSession.addEventListener('change', () => {
     if (selSession.value === '__new__') {
@@ -1484,93 +1475,64 @@
     }
   });
 
-  function populatePeers(peers, savedHost) {
-    selHost.innerHTML = '<option value="">Select device…</option>' +
-      peers.filter(p => p.ip).map(p =>
-        `<option value="${p.ip}">${p.name ? p.name + '  (' + p.ip + ')' : p.ip}</option>`
-      ).join('');
-    if (savedHost) selHost.value = savedHost;
-    // switch to select mode
-    selHost.classList.remove('d-none');
-    inpHost.classList.add('d-none');
-    toggleManualBtn.textContent = 'enter IP manually';
-    manualMode = false;
+  async function loadSessions() {
+    const subtitle = document.getElementById('connect-subtitle');
+    const connectBtn = document.getElementById('connect-btn');
+    try {
+      const r = await fetch('/api/sessions');
+      if (!r.ok) throw new Error();
+      const { sessions } = await r.json();
+      const saved = loadConn();
+      let opts = '';
+      // If last-used session is not in the active list, show it as a special option
+      if (saved.session && !(sessions || []).includes(saved.session)) {
+        opts += `<option value="__last__">↩ last used: ${saved.session}</option>`;
+      }
+      opts += (sessions || []).map(s => `<option value="${s}">${s}</option>`).join('');
+      opts += '<option value="__new__">＋  New session…</option>';
+      selSession.innerHTML = opts;
+      // Pre-select last-used if it's in the active list
+      if (saved.session && (sessions || []).includes(saved.session)) {
+        selSession.value = saved.session;
+      }
+      inpSessionNew.classList.add('d-none');
+      subtitle.textContent = 'Choose a session';
+      connectBtn.disabled = false;
+    } catch {
+      subtitle.textContent = 'Server offline';
+    }
   }
 
-  toggleManualBtn.addEventListener('click', () => {
-    manualMode = !manualMode;
-    if (manualMode) {
-      selHost.classList.add('d-none');
-      inpHost.classList.remove('d-none');
-      toggleManualBtn.textContent = 'choose from list';
-      inpHost.focus();
-    } else {
-      selHost.classList.remove('d-none');
-      inpHost.classList.add('d-none');
-      toggleManualBtn.textContent = 'enter IP manually';
+  async function initConnectScreen() {
+    try {
+      const r = await fetch('/health');
+      if (!r.ok) throw new Error();
+      await loadSessions();
+    } catch {
+      document.getElementById('connect-subtitle').textContent = 'Server offline';
     }
-  });
-
-  selHost.addEventListener('change', () => {
-    const ip = selHost.value;
-    if (!ip) return;
-    const saved = loadDevices()[ip];
-    if (saved?.port) document.getElementById('inp-port').value = saved.port;
-    refreshSessions();
-  });
+  }
 
   // ── Connect form ──────────────────────────────────────────
-  const conn = loadConn();
-  if (conn.port) document.getElementById('inp-port').value = conn.port;
-
-  // Try to populate peer list from last known host
-  if (conn.host) {
-    const port = conn.port || '3000';
-    fetchPeers(conn.host, port).then(peers => {
-      if (peers.length > 0) {
-        populatePeers(peers, conn.host);
-        refreshSessions();
-      } else {
-        inpHost.value = conn.host;
-      }
-    });
-  }
-
   document.getElementById('connect-btn').addEventListener('click', () => {
-    const host = getHost();
-    const port = document.getElementById('inp-port').value.trim() || '3000';
-    const rawSession = fieldSession.classList.contains('d-none') ? '' : selSession.value;
-    const session = rawSession === '__new__'
+    const raw = selSession.value;
+    const session = raw === '__new__'
       ? (inpSessionNew.value.trim() || 'termtunnel')
-      : (rawSession || 'termtunnel');
-    if (!host) { setError('Host is required'); return; }
-    saveConn({ host, port, session });
-    saveDevice(host, { port });
-    connect(host, port, session);
+      : raw === '__last__'
+      ? loadConn().session
+      : (raw || 'termtunnel');
+    saveConn({ session });
+    connect(ORIGIN_HOST, ORIGIN_PORT, session);
   });
 
-  // Enter key submits form
-  ['inp-host', 'inp-port'].forEach((id) => {
-    document.getElementById(id).addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') document.getElementById('connect-btn').click();
-    });
-  });
-
-  // Auto-connect if saved config exists
-  if (conn.host && conn.port) {
-    setTimeout(() => connect(conn.host, conn.port, conn.session || 'termtunnel'), 300);
-  }
+  initConnectScreen();
 
   // ── Reconnect button ──────────────────────────────────────
   document.getElementById('reconnect-btn').addEventListener('click', () => {
     closeSettings();
     reconnectAttempts = 0;
-    const c = loadConn();
-    if (c.host && c.port) {
-      connect(c.host, c.port, c.session || 'termtunnel');
-    } else {
-      showOverlay();
-    }
+    const { session } = loadConn();
+    connect(ORIGIN_HOST, ORIGIN_PORT, session || 'termtunnel');
   });
 
   document.getElementById('switch-btn').addEventListener('click', () => {
@@ -1578,6 +1540,7 @@
     if (ws) { ws.onclose = null; ws.close(); ws = null; }
     wasConnected = false;
     setStatus('idle');
+    loadSessions();
     showOverlay();
   });
 
@@ -1763,7 +1726,11 @@
   }
 
   function dpadSend(dir) {
-    sendData(dpadKey(dir));
+    if (paneNavMode) {
+      sendMsg({ type: 'pane-select', dir });
+    } else {
+      sendData(dpadKey(dir));
+    }
     dpadFlash(dir);
   }
 
@@ -2186,7 +2153,12 @@
     if (!key || key === tbKbToggle) return;
     if (key.hasAttribute('data-lp')) return;
     e.stopPropagation();
-    sendData(key.dataset.send);
+    if (paneNavMode && key.classList.contains('tb-arrow')) {
+      const dir = ARROW_DIRS[key.dataset.send];
+      if (dir) sendMsg({ type: 'pane-select', dir });
+    } else {
+      sendData(key.dataset.send);
+    }
   });
 
   // ── Toolbar long-press system ─────────────────────────────
