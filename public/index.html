@@ -52,6 +52,7 @@
       flex-direction: column;
       height: 100dvh;
       position: relative;
+      padding-top: env(safe-area-inset-top);
       padding-left: env(safe-area-inset-left);
       padding-right: env(safe-area-inset-right);
     }
@@ -108,6 +109,32 @@
       -webkit-tap-highlight-color: transparent;
     }
     #settings-btn:active { color: var(--text); }
+
+    /* ── Reconnect toast ── */
+    #reconnect-toast {
+      position: fixed;
+      top: calc(env(safe-area-inset-top) + 54px);
+      left: 50%;
+      transform: translateX(-50%) translateY(-6px);
+      background: rgba(16, 24, 32, 0.92);
+      border: 1px solid var(--amber);
+      border-radius: 20px;
+      color: var(--amber);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      padding: 5px 13px;
+      z-index: 45;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, transform 0.2s;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      white-space: nowrap;
+    }
+    #reconnect-toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
 
     /* ── Settings action buttons ── */
     .setting-actions {
@@ -286,7 +313,7 @@
       position: fixed;
       inset: 0;
       background: rgba(0,0,0,0.6);
-      z-index: 30;
+      z-index: 60;
       opacity: 0;
       visibility: hidden;
       transition: opacity 0.25s, visibility 0.25s;
@@ -298,21 +325,69 @@
       bottom: 0;
       left: 0;
       right: 0;
+      max-height: 85dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       background: var(--surface);
       border-top: 1px solid var(--border);
       border-radius: 16px 16px 0 0;
       padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
-      z-index: 31;
+      z-index: 61;
       transform: translateY(100%);
       transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
     }
     #settings-panel.open { transform: translateY(0); }
 
-    #settings-panel h3 {
+    .settings-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .settings-header h3 {
       font-size: 13px;
       letter-spacing: 0.08em;
       color: var(--green);
-      margin-bottom: 20px;
+      margin: 0;
+    }
+    #settings-close-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px 6px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+    #settings-close-btn:active { color: var(--text); }
+
+    /* Segmented control (replaces <select> for Cursor Style) */
+    .seg-ctrl {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .seg-btn {
+      flex: 1;
+      background: var(--bg);
+      border: none;
+      border-right: 1px solid var(--border);
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 7px 4px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: background 0.15s, color 0.15s;
+    }
+    .seg-btn:last-child { border-right: none; }
+    .seg-btn.active {
+      background: rgba(0,255,159,0.1);
+      color: var(--green);
     }
 
     .setting-row {
@@ -334,7 +409,6 @@
       margin-top: 2px;
     }
 
-    .setting-row select,
     .setting-row input[type="number"] {
       background: var(--bg);
       border: 1px solid var(--border);
@@ -774,6 +848,15 @@
       border-radius: 50%;
       background: var(--border);
       pointer-events: none;
+      transition: background 0.15s, width 0.15s, height 0.15s;
+    }
+    #float-dpad.dragging {
+      filter: drop-shadow(0 0 8px rgba(0,255,159,0.45));
+    }
+    #float-dpad.dragging .fdp-dot {
+      background: var(--green);
+      width: 12px;
+      height: 12px;
     }
   </style>
 </head>
@@ -784,6 +867,7 @@
     <div id="status-dot"></div>
     <button id="settings-btn" title="Settings">⚙</button>
   </div>
+  <div id="reconnect-toast"></div>
 
   <!-- Terminal + Overlay -->
   <div id="terminal-wrap">
@@ -1036,7 +1120,10 @@
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
 <div id="settings-panel">
-  <h3>SETTINGS</h3>
+  <div class="settings-header">
+    <h3>SETTINGS</h3>
+    <button id="settings-close-btn" aria-label="Close settings">✕</button>
+  </div>
   <div class="setting-actions">
     <button class="sa-btn" id="copy-btn">Copy</button>
     <button class="sa-btn" id="paste-btn">Paste</button>
@@ -1057,11 +1144,11 @@
   </div>
   <div class="setting-row">
     <div class="setting-label">Cursor Style</div>
-    <select id="set-cursor">
-      <option value="block">Block</option>
-      <option value="underline">Underline</option>
-      <option value="bar">Bar</option>
-    </select>
+    <div class="seg-ctrl" id="set-cursor">
+      <button class="seg-btn" data-value="block">Block</button>
+      <button class="seg-btn" data-value="underline">Underline</button>
+      <button class="seg-btn" data-value="bar">Bar</button>
+    </div>
   </div>
   <div class="setting-row">
     <div class="setting-label">Auto-Reconnect<small>on disconnect</small></div>
@@ -1221,6 +1308,16 @@
     dot.className = state || '';
   }
 
+  // ── Reconnect toast ───────────────────────────────────────
+  const reconnectToast = document.getElementById('reconnect-toast');
+  function showReconnectToast(msg) {
+    reconnectToast.textContent = msg;
+    reconnectToast.classList.add('visible');
+  }
+  function hideReconnectToast() {
+    reconnectToast.classList.remove('visible');
+  }
+
   // ── WebSocket connection ──────────────────────────────────
   function connect(host, port, session = 'termtunnel') {
     clearTimeout(reconnectTimer);
@@ -1255,10 +1352,12 @@
         if (msg.data === 'connected') {
           wasConnected = true;
           hideOverlay();
+          hideReconnectToast();
           setStatus('connected');
           doFit();
           term.focus();
         } else if (msg.data === 'disconnected') {
+          if (ws) ws.onclose = null;
           setStatus('idle');
           scheduleReconnect();
         }
@@ -1271,7 +1370,7 @@
 
     ws.onerror = () => {
       setStatus('error');
-      setError('Connection failed');
+      if (!loadSettings().autoReconnect) setError('Connection failed');
     };
 
     ws.onclose = () => {
@@ -1285,13 +1384,13 @@
     const s = loadSettings();
     if (!s.autoReconnect) return;
     if (reconnectAttempts >= MAX_RECONNECT) {
-      term.writeln('\r\n\x1b[31m[reconnect] Max attempts reached. Open settings to retry.\x1b[0m');
+      hideReconnectToast();
       showOverlay();
       return;
     }
     const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), RECONNECT_CAP);
     reconnectAttempts++;
-    term.writeln(`\r\n\x1b[33m[reconnect] Attempt ${reconnectAttempts}/${MAX_RECONNECT} in ${delay/1000}s…\x1b[0m`);
+    showReconnectToast(`Reconnecting ${reconnectAttempts}/${MAX_RECONNECT}…`);
     setStatus('connecting');
     reconnectTimer = setTimeout(() => {
       const conn = loadConn();
@@ -1309,7 +1408,6 @@
         reconnectAttempts = 0;
         const conn = loadConn();
         if (conn.host && conn.port) {
-          term.writeln('\r\n\x1b[33m[reconnect] Reconnecting…\x1b[0m');
           connect(conn.host, conn.port, conn.session || 'termtunnel');
         }
       }
@@ -1498,13 +1596,23 @@
   }
 
   document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('settings-close-btn').addEventListener('click', closeSettings);
   backdrop.addEventListener('click', closeSettings);
+
+  document.querySelectorAll('#set-cursor .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#set-cursor .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
 
   // Populate settings UI
   document.getElementById('set-fontsize').value = settings.fontSize;
   document.getElementById('set-kb-fontsize').value = settings.kbFontSize;
   document.getElementById('set-scrollback').value = settings.scrollback;
-  document.getElementById('set-cursor').value = settings.cursorStyle;
+  document.querySelectorAll('#set-cursor .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === settings.cursorStyle);
+  });
   document.getElementById('set-reconnect').checked = settings.autoReconnect;
   document.getElementById('set-tb-arrows').checked = settings.tbArrows;
   document.getElementById('set-dpad').checked = settings.floatDpad;
@@ -1517,7 +1625,7 @@
       fontSize: parseInt(document.getElementById('set-fontsize').value, 10) || 14,
       kbFontSize: parseInt(document.getElementById('set-kb-fontsize').value, 10) || 22,
       scrollback: parseInt(document.getElementById('set-scrollback').value, 10) || 2000,
-      cursorStyle: document.getElementById('set-cursor').value,
+      cursorStyle: document.querySelector('#set-cursor .seg-btn.active')?.dataset.value || 'block',
       autoReconnect: document.getElementById('set-reconnect').checked,
       tbArrows: document.getElementById('set-tb-arrows').checked,
       floatDpad: document.getElementById('set-dpad').checked,
@@ -1542,19 +1650,19 @@
 
   document.getElementById('copy-btn').addEventListener('click', () => {
     const selection = term.getSelection();
+    closeSettings();
     if (!selection) return;
     navigator.clipboard.writeText(selection).then(() => {
       flashBtn(document.getElementById('copy-btn'));
-      closeSettings();
     }).catch(() => {});
   });
 
   document.getElementById('paste-btn').addEventListener('click', () => {
+    closeSettings();
     navigator.clipboard.readText().then((text) => {
       if (text) {
         sendData(text);
         flashBtn(document.getElementById('paste-btn'));
-        closeSettings();
       }
     }).catch(() => {});
   });
@@ -1687,15 +1795,64 @@
   }
 
   let dpadLastCenterTap = 0;
+  let dpadDragging      = false;
+  let dpadDragTimer     = null;
+  let dpadDragStart     = null; // { touchX, touchY, dpadLeft, dpadTop }
+  const DPAD_LONG_PRESS = 450;
+
+  // ── Position persistence ──────────────────────────────────
+  function dpadLoadPos() {
+    try { return JSON.parse(localStorage.getItem('termtunnel_dpad_pos') || 'null'); } catch {}
+    return null;
+  }
+  function dpadSavePos(left, top) {
+    localStorage.setItem('termtunnel_dpad_pos', JSON.stringify({ left, top }));
+  }
+  function dpadApplyPos(left, top) {
+    const size = 130;
+    left = Math.max(0, Math.min(window.innerWidth  - size, left));
+    top  = Math.max(0, Math.min(window.innerHeight - size, top));
+    floatDpad.style.left   = left + 'px';
+    floatDpad.style.top    = top  + 'px';
+    floatDpad.style.right  = 'auto';
+    floatDpad.style.bottom = 'auto';
+  }
+  const _savedDpadPos = dpadLoadPos();
+  if (_savedDpadPos) dpadApplyPos(_savedDpadPos.left, _savedDpadPos.top);
+
+  // ── Drag helpers ──────────────────────────────────────────
+  function dpadEndDrag() {
+    clearTimeout(dpadDragTimer);
+    dpadDragTimer = null;
+    if (dpadDragging) {
+      dpadDragging  = false;
+      dpadDragStart = null;
+      floatDpad.classList.remove('dragging');
+      const rect = floatDpad.getBoundingClientRect();
+      dpadSavePos(rect.left, rect.top);
+      return true;
+    }
+    return false;
+  }
 
   floatDpad.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.touches[0];
     const dir = dpadGetDir(t.clientX, t.clientY);
+
     if (!dir) {
-      // Centre tap — check for double-tap
+      // Centre — start long-press timer for drag
+      const rect = floatDpad.getBoundingClientRect();
+      dpadDragTimer = setTimeout(() => {
+        dpadDragging  = true;
+        dpadDragStart = { touchX: t.clientX, touchY: t.clientY, dpadLeft: rect.left, dpadTop: rect.top };
+        floatDpad.classList.add('dragging');
+      }, DPAD_LONG_PRESS);
+
+      // Double-tap to dismiss
       const now = Date.now();
       if (now - dpadLastCenterTap < 350) {
+        clearTimeout(dpadDragTimer);
         dpadLastCenterTap = 0;
         const s = loadSettings();
         s.floatDpad = false;
@@ -1707,6 +1864,7 @@
       }
       return;
     }
+
     dpadLastCenterTap = 0;
     dpadActivate(dir);
   }, { passive: false });
@@ -1714,11 +1872,30 @@
   floatDpad.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const t = e.touches[0];
-    dpadActivate(dpadGetDir(t.clientX, t.clientY));
+
+    if (dpadDragging && dpadDragStart) {
+      const dx = t.clientX - dpadDragStart.touchX;
+      const dy = t.clientY - dpadDragStart.touchY;
+      dpadApplyPos(dpadDragStart.dpadLeft + dx, dpadDragStart.dpadTop + dy);
+      return;
+    }
+
+    const dir = dpadGetDir(t.clientX, t.clientY);
+    if (dir && dpadDragTimer) {
+      // Moved to arrow zone before long-press threshold — cancel drag
+      clearTimeout(dpadDragTimer);
+      dpadDragTimer = null;
+    }
+    dpadActivate(dir);
   }, { passive: false });
 
-  floatDpad.addEventListener('touchend',    dpadStop);
-  floatDpad.addEventListener('touchcancel', dpadStop);
+  floatDpad.addEventListener('touchend', () => {
+    if (!dpadEndDrag()) dpadStop();
+  });
+  floatDpad.addEventListener('touchcancel', () => {
+    dpadEndDrag();
+    dpadStop();
+  });
 
   // Page swap helpers
   const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
