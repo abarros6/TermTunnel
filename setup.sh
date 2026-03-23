@@ -168,15 +168,18 @@ else
   ok ".env created"
 fi
 
-# Apply THEME_COLOR to manifest.json if set in .env
+# Apply THEME_COLOR to manifest.json and regenerate icon if set
 THEME_COLOR=$(grep '^THEME_COLOR=' .env | cut -d'=' -f2 | tr -d '[:space:]' || true)
+ICON_COLOR="${THEME_COLOR:-#0a0e14}"
 if [[ -n "$THEME_COLOR" ]]; then
   sedi "s|\"background_color\": \"#[0-9a-fA-F]*\"|\"background_color\": \"${THEME_COLOR}\"|g" public/manifest.json
   sedi "s|\"theme_color\": \"#[0-9a-fA-F]*\"|\"theme_color\": \"${THEME_COLOR}\"|g" public/manifest.json
-  ENCODED_COLOR=$(echo "$THEME_COLOR" | sed 's/#/%23/')
-  sedi "s|fill='%23[0-9a-fA-F]*'|fill='${ENCODED_COLOR}'|g" public/manifest.json
   ok "Manifest theme color set to ${THEME_COLOR}"
 fi
+
+# Generate icon.png (uses THEME_COLOR if set, otherwise default)
+node "${SCRIPT_DIR}/scripts/generate-icon.js" "--color=${ICON_COLOR}" "--output=public/icon.png"
+ok "icon.png generated (${ICON_COLOR})"
 
 # ── Step [mac]: Firewall ──────────────────────────────────────────────────────
 if [[ "$OS" == "mac" ]]; then
