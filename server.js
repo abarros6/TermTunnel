@@ -145,10 +145,6 @@ wss.on('connection', (ws, req) => {
     console.log(`[WS] Client disconnected (${code})`);
     clearTimeout(flushTimer);
     ptyProcess.kill();
-    // Clean up the grouped phone session if it was created
-    if (TMUX) {
-      try { execSync(`${TMUX} kill-session -t "tt_ph_${sessionName}" 2>/dev/null`); } catch {}
-    }
   });
 
   ws.on('error', (err) => {

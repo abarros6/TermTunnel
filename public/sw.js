@@ -1,5 +1,6 @@
-const CACHE_NAME = 'termtunnel-v1';
-const STATIC_ASSETS = ['/', '/index.html', '/manifest.json'];
+const CACHE_NAME = 'termtunnel-v2';
+const STATIC_ASSETS = ['/manifest.json'];
+const NETWORK_FIRST = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -25,10 +26,23 @@ self.addEventListener('fetch', (event) => {
   if (request.url.startsWith('ws://') || request.url.startsWith('wss://')) return;
   if (new URL(request.url).pathname === '/ws') return;
 
-  const isStatic = STATIC_ASSETS.some((path) => new URL(request.url).pathname === path);
+  const pathname = new URL(request.url).pathname;
+  const isStatic = STATIC_ASSETS.some((path) => pathname === path);
+  const isNetworkFirst = NETWORK_FIRST.some((path) => pathname === path);
 
-  if (isStatic) {
-    // Cache-first for static assets
+  if (isNetworkFirst) {
+    // Network-first for HTML — always serve fresh code, fall back to cache offline
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+  } else if (isStatic) {
+    // Cache-first for static assets (manifest, icons)
     event.respondWith(
       caches.match(request).then((cached) => cached || fetch(request))
     );
