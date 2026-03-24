@@ -86,6 +86,33 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+app.get('/api/version', (_req, res) => {
+  try {
+    const hash    = execSync('git rev-parse HEAD',            { cwd: __dirname }).toString().trim();
+    const date    = execSync('git log -1 --format=%ci HEAD', { cwd: __dirname }).toString().trim();
+    const branch  = execSync('git rev-parse --abbrev-ref HEAD', { cwd: __dirname }).toString().trim();
+    res.json({ hash, shortHash: hash.slice(0, 7), date, branch });
+  } catch {
+    res.json({ hash: 'unknown', shortHash: 'unknown', date: null, branch: 'unknown' });
+  }
+});
+
+app.get('/api/check-update', (_req, res) => {
+  try {
+    execFileSync('git', ['fetch', '--quiet'], { cwd: __dirname });
+    const local  = execSync('git rev-parse HEAD',            { cwd: __dirname }).toString().trim();
+    const remote = execSync('git rev-parse origin/master',   { cwd: __dirname }).toString().trim();
+    if (local === remote) return res.json({ upToDate: true, behind: 0 });
+    const behind = parseInt(
+      execSync(`git rev-list --count HEAD..origin/master`, { cwd: __dirname }).toString().trim(), 10
+    );
+    const latestDate = execSync('git log -1 --format=%ci origin/master', { cwd: __dirname }).toString().trim();
+    res.json({ upToDate: false, behind, latestHash: remote.slice(0, 7), latestDate });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 async function probeTermTunnel(ip, port = PORT) {
   try {
     const r = await fetch(`http://${ip}:${port}/health`, {
@@ -285,19 +312,3 @@ server.listen(PORT, () => {
   console.log(`[TermTunnel] Shell: ${SHELL}`);
   console.log(`[TermTunnel] Session persistence: ${TMUX ? `tmux at ${TMUX}` : 'none (tmux not found)'}`);
 });
-
-function checkForUpdates() {
-  try {
-    const before = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim();
-    execFileSync('git', ['pull', '--quiet'], { cwd: __dirname });
-    const after = execSync('git rev-parse HEAD', { cwd: __dirname }).toString().trim();
-    if (before !== after) {
-      console.log('[AutoUpdate] New version pulled — restarting…');
-      process.exit(0);
-    }
-  } catch (err) {
-    console.error('[AutoUpdate] git pull failed:', err.message);
-  }
-}
-
-setInterval(checkForUpdates, 15 * 60 * 1000);

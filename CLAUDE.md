@@ -38,7 +38,7 @@ All messages are JSON:
 - **Tailscale for remote access** — no port forwarding, no public exposure. Each Mac gets a permanent `100.x.x.x` IP. The connect screen discovers Tailscale peers and probes them for running TermTunnel instances.
 - **Custom keyboard** — 3-page layout (QWERTY, 123, symbols) with a floating status pill instead of a header bar. Features: iOS-style key callout on press, long-press for alternate characters, double-tap space for period, long-press space for Tab, Ctrl as sticky modifier, macro picker via long-press on fn button.
 - **launchd for process management** — `setup.sh` creates a launchd plist (`com.termtunnel.server`) with `KeepAlive` and `RunAtLoad`. Replaces the old pm2 approach.
-- **Auto-update** — server runs `git pull` every 15 minutes. If new commits land, `process.exit(0)` triggers launchd to restart with the new code.
+- **Manual update** — run `bash update.sh` to check for and apply updates. The script fetches, shows new commits, confirms, pulls, and restarts via launchctl. `/api/version` and `/api/check-update` endpoints support the in-app update check in the settings panel.
 - **Background reconnect** — a `visibilitychange` listener silently reconnects when the user returns to the app, without showing the connect overlay.
 
 ## Adding a New Machine
