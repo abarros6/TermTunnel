@@ -555,8 +555,15 @@
     }
 
     .kb-key-wide   { flex: 0 0 56px; }
-    .kb-key-return { color: var(--green); background: rgba(0,255,159,0.1); border-color: rgba(0,255,159,0.25); }
-    .kb-key-return:active { background: rgba(0,255,159,0.25); }
+    .kb-key-return {
+      flex: 0 0 90px;
+      font-size: 28px;
+      color: var(--green);
+      background: rgba(0,255,159,0.08);
+      border-color: rgba(0,255,159,0.3);
+      box-shadow: inset 0 1px 0 rgba(0,255,159,0.12), 0 0 8px rgba(0,255,159,0.06);
+    }
+    .kb-key-return:active { background: rgba(0,255,159,0.22); }
 
     .kb-key-space  { flex: 1; }
     .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
@@ -689,6 +696,64 @@
     .tb-arrow-h > span { display: inline-block; transform: rotate(90deg); }
     .tb-arrow.hidden { display: none; }
 
+    #tb-backslash {
+      border-left: 1px solid var(--border);
+      font-size: 15px;
+      color: var(--text);
+    }
+    #tb-backslash.hidden { display: none; }
+
+    /* ── Leader Picker ── */
+    #leader-picker {
+      position: fixed;
+      left: 8px;
+      right: 8px;
+      bottom: calc(var(--toolbar-h) + var(--kb-actual-h) + 6px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      z-index: 53;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: opacity 0.12s, transform 0.12s;
+    }
+    #leader-picker.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .lp-title {
+      padding: 7px 16px 6px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .lp-item {
+      padding: 10px 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      cursor: pointer;
+    }
+    .lp-item:last-child { border-bottom: none; }
+    .lp-item.active { color: var(--green); }
+    .lp-key {
+      color: var(--blue);
+      font-size: 11px;
+      min-width: 28px;
+    }
+
     #tb-kb-toggle {
       flex: 2;
       color: var(--blue);
@@ -812,7 +877,14 @@
       width: 130px;
       height: 130px;
       z-index: 55;
-      background: rgba(14, 22, 32, 0.96);
+      background:
+        linear-gradient(to right,
+          transparent 63px, rgba(255,255,255,0.025) 63px,
+          rgba(255,255,255,0.025) 67px, transparent 67px),
+        linear-gradient(to bottom,
+          transparent 63px, rgba(255,255,255,0.025) 63px,
+          rgba(255,255,255,0.025) 67px, transparent 67px),
+        rgba(14, 22, 32, 0.96);
       border: 1px solid var(--border);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
@@ -822,7 +894,7 @@
       -webkit-user-select: none;
       opacity: 0;
       pointer-events: none;
-      transition: opacity 0.15s, transform 0.15s;
+      transition: opacity 0.15s, transform 0.15s, background 0.2s, border-color 0.2s;
       transform: translateY(6px);
     }
     #float-dpad.open {
@@ -830,42 +902,73 @@
       pointer-events: auto;
       transform: translateY(0);
     }
+    /* Collapsed: shrinks to a draggable dot at the center of the hit area */
+    #float-dpad.collapsed {
+      clip-path: circle(18px at 65px 65px);
+      background: rgba(58, 122, 255, 0.12);
+      border-color: rgba(58, 122, 255, 0.3);
+    }
+    #float-dpad.collapsed .fdp-arrow { opacity: 0; }
+    #float-dpad.collapsed.dragging {
+      filter: drop-shadow(0 0 8px rgba(58, 122, 255, 0.5));
+    }
     .fdp-arrow {
       position: absolute;
-      color: var(--dim);
+      color: rgba(148, 163, 184, 0.65);
       font-size: 22px;
       line-height: 1;
       pointer-events: none;
-      transition: color 0.08s, transform 0.08s;
+      transition: color 0.08s, scale 0.08s, opacity 0.15s;
     }
+    .fdp-left  { rotate: -90deg; }
+    .fdp-right { rotate:  90deg; }
     .fdp-arrow.active { color: #3a7aff; }
     @keyframes fdp-flash {
-      0%   { color: #fff; transform: scale(1.5); }
-      100% { color: #3a7aff; transform: scale(1); }
+      0%   { color: #fff; scale: 1.4; }
+      100% { color: #3a7aff; scale: 1; }
     }
     .fdp-arrow.flash { animation: fdp-flash 0.18s ease-out forwards; }
     .fdp-up    { top: 0;    left: 43px; right: 43px; height: 43px; display: flex; align-items: center; justify-content: center; }
     .fdp-down  { bottom: 0; left: 43px; right: 43px; height: 43px; display: flex; align-items: center; justify-content: center; }
     .fdp-left  { left: 0;   top: 43px; bottom: 43px; width: 43px;  display: flex; align-items: center; justify-content: center; }
     .fdp-right { right: 0;  top: 43px; bottom: 43px; width: 43px;  display: flex; align-items: center; justify-content: center; }
-    .fdp-dot   {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--border);
-      pointer-events: none;
-      transition: background 0.15s, width 0.15s, height 0.15s;
-    }
     #float-dpad.dragging {
       filter: drop-shadow(0 0 8px rgba(0,255,159,0.45));
     }
-    #float-dpad.dragging .fdp-dot {
-      background: var(--green);
-      width: 12px;
-      height: 12px;
+    #float-dpad.dragging .fdp-arrow,
+    #float-dpad.drag-ready .fdp-arrow {
+      color: #3a7aff;
+      transition: color 0.1s;
     }
+
+    /* ── D-Pad Collapse Button ── */
+    #dpad-collapse-btn {
+      position: fixed;
+      z-index: 56;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(30, 40, 55, 0.92);
+      border: 1.5px solid rgba(58, 122, 255, 0.5);
+      box-shadow: 0 0 0 2px rgba(58, 122, 255, 0.15);
+      display: none;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      padding: 0;
+    }
+    #dpad-collapse-btn.visible { display: block; }
+    #dpad-collapse-btn:active { background: rgba(58, 122, 255, 0.25); }
+
+    #tb-tab {
+      border-left: 1px solid var(--border);
+      font-size: 11px;
+      letter-spacing: 0.03em;
+    }
+    #tb-tab.hidden { display: none; }
+    #tb-enter { color: var(--green); }
+    #tb-enter.hidden { display: none; }
+
   </style>
 </head>
 <body>
@@ -1092,10 +1195,21 @@
   <div class="mp-item" data-send="clear&#x0d;">clear</div>
 </div>
 
+<!-- Leader Key Picker (long-press on Ctrl) -->
+<div id="leader-picker">
+  <div class="lp-title">Leader Key — Ctrl double-tap sends</div>
+  <div class="lp-item" data-leader="&#x02;"><span class="lp-key">^B</span> tmux default</div>
+  <div class="lp-item" data-leader="&#x01;"><span class="lp-key">^A</span> screen / tmux alt</div>
+  <div class="lp-item" data-leader="&#x17;"><span class="lp-key">^W</span> vim windows</div>
+</div>
+
 <!-- Keyboard Toolbar -->
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
   <button class="tb-key" id="tb-macros">fn</button>
+  <button class="tb-key hidden" id="tb-backslash" data-send="&#x2f;">/</button>
+  <button class="tb-key hidden" id="tb-tab" data-send="&#x09;">Tab</button>
+  <button class="tb-key hidden" id="tb-enter" data-send="&#x0d;">↵</button>
   <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[D"><span>↓</span></button>
   <button class="tb-key tb-arrow" data-send="&#x1b;[A">↑</button>
   <button class="tb-key tb-arrow" data-send="&#x1b;[B">↓</button>
@@ -1106,11 +1220,11 @@
 <!-- Floating D-Pad -->
 <div id="float-dpad">
   <span class="fdp-arrow fdp-up">↑</span>
-  <span class="fdp-arrow fdp-left">←</span>
-  <span class="fdp-arrow fdp-right">→</span>
+  <span class="fdp-arrow fdp-left">↑</span>
+  <span class="fdp-arrow fdp-right">↑</span>
   <span class="fdp-arrow fdp-down">↓</span>
-  <span class="fdp-dot"></span>
 </div>
+<button id="dpad-collapse-btn" aria-label="Collapse d-pad"></button>
 
 <!-- Floating Pill -->
 <button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
@@ -1152,6 +1266,14 @@
       <input type="checkbox" id="set-reconnect" checked>
       <span class="toggle-slider"></span>
     </label>
+  </div>
+  <div class="setting-row">
+    <div class="setting-label">Leader Key<small>Ctrl double-tap</small></div>
+    <div class="seg-ctrl" id="set-leader">
+      <button class="seg-btn" data-value="&#x02;">^B</button>
+      <button class="seg-btn" data-value="&#x01;">^A</button>
+      <button class="seg-btn" data-value="&#x17;">^W</button>
+    </div>
   </div>
   <div class="setting-row">
     <div class="setting-label">Toolbar Arrows<small>arrow keys in toolbar</small></div>
@@ -1202,6 +1324,7 @@
     kbFontSize: 22,
     tbArrows: true,
     floatDpad: false,
+    leaderKey: '\x02',
   };
 
   function loadSettings() {
@@ -1520,9 +1643,11 @@
   // ── Overlay helpers ───────────────────────────────────────
   function showOverlay() {
     document.getElementById('connect-overlay').classList.remove('hidden');
+    applyDpadOpen(false);
   }
   function hideOverlay() {
     document.getElementById('connect-overlay').classList.add('hidden');
+    if (loadSettings().floatDpad) applyDpadOpen(true);
   }
   function setError(msg) {
     document.getElementById('connect-error').textContent = msg;
@@ -1670,6 +1795,13 @@
     });
   });
 
+  document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#set-leader .seg-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
   // Populate settings UI
   document.getElementById('set-fontsize').value = settings.fontSize;
   document.getElementById('set-kb-fontsize').value = settings.kbFontSize;
@@ -1680,9 +1812,24 @@
   document.getElementById('set-reconnect').checked = settings.autoReconnect;
   document.getElementById('set-tb-arrows').checked = settings.tbArrows;
   document.getElementById('set-dpad').checked = settings.floatDpad;
+  document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === settings.leaderKey);
+  });
   document.documentElement.style.setProperty('--kb-font-size', settings.kbFontSize + 'px');
-  document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', !settings.tbArrows));
-  document.getElementById('float-dpad').classList.toggle('open', settings.floatDpad);
+
+  // Declared here so applyDpadOpen/applyDpadToolbar can reference them at call time
+  const floatDpad       = document.getElementById('float-dpad');
+  const dpadCollapseBtn = document.getElementById('dpad-collapse-btn');
+
+  function applyDpadToolbar(dpadOn, tbArrows) {
+    document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', dpadOn || !tbArrows));
+    document.getElementById('tb-backslash').classList.toggle('hidden', !dpadOn);
+    document.getElementById('tb-tab').classList.toggle('hidden', !dpadOn);
+    document.getElementById('tb-enter').classList.toggle('hidden', !dpadOn);
+  }
+
+  applyDpadToolbar(settings.floatDpad, settings.tbArrows);
+  // D-pad stays closed until connected (hideOverlay opens it if the setting is on)
 
   function applySettings() {
     const s = {
@@ -1693,11 +1840,14 @@
       autoReconnect: document.getElementById('set-reconnect').checked,
       tbArrows: document.getElementById('set-tb-arrows').checked,
       floatDpad: document.getElementById('set-dpad').checked,
+      leaderKey: document.querySelector('#set-leader .seg-btn.active')?.dataset.value || '\x02',
     };
     saveSettings(s);
     document.documentElement.style.setProperty('--kb-font-size', s.kbFontSize + 'px');
-    document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', !s.tbArrows));
-    document.getElementById('float-dpad').classList.toggle('open', s.floatDpad);
+    applyDpadToolbar(s.floatDpad, s.tbArrows);
+    // Only open d-pad if connected (connect overlay is hidden)
+    const onConnectScreen = !document.getElementById('connect-overlay').classList.contains('hidden');
+    applyDpadOpen(s.floatDpad && !onConnectScreen);
     Object.assign(term.options, {
       fontSize: s.fontSize,
       scrollback: s.scrollback,
@@ -1721,7 +1871,6 @@
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
   const kbPill      = document.getElementById('kb-pill');
-  const floatDpad   = document.getElementById('float-dpad');
   const kbCtrlKey    = document.getElementById('kb-ctrl');
   const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
   const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
@@ -1773,7 +1922,7 @@
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
-    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !floatDpad.contains(e.target)) {
+    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !floatDpad.contains(e.target) && !dpadCollapseBtn.contains(e.target)) {
       kbState.toolbarOpen = false;
       applyKbState();
     }
@@ -1786,6 +1935,7 @@
     return (term?.modes?.applicationCursorKeysMode ? DPAD_KEYS_APP : DPAD_KEYS_NORMAL)[dir];
   }
   const DPAD_DEAD  = 16;  // px dead zone from center
+  const DPAD_OUTER = 52;  // px max — ignore presses near arm tips
   const DPAD_DELAY = 320; // ms before repeat starts
   const DPAD_RATE  = 180; // ms between repeats
   let dpadDir     = null;
@@ -1797,6 +1947,7 @@
     const dx = x - (rect.left + rect.width  / 2);
     const dy = y - (rect.top  + rect.height / 2);
     if (Math.abs(dx) < DPAD_DEAD && Math.abs(dy) < DPAD_DEAD) return null;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) > DPAD_OUTER) return null;
     return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
   }
 
@@ -1843,11 +1994,10 @@
     floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active', 'flash'));
   }
 
-  let dpadLastCenterTap = 0;
   let dpadDragging      = false;
   let dpadDragTimer     = null;
   let dpadDragStart     = null; // { touchX, touchY, dpadLeft, dpadTop }
-  const DPAD_LONG_PRESS = 450;
+  const DPAD_LONG_PRESS = 180;  // ms hold on handle before drag mode
 
   // ── Position persistence ──────────────────────────────────
   function dpadLoadPos() {
@@ -1857,22 +2007,98 @@
   function dpadSavePos(left, top) {
     localStorage.setItem('termtunnel_dpad_pos', JSON.stringify({ left, top }));
   }
+  function syncCollapseBtn() {
+    const rect = floatDpad.getBoundingClientRect();
+    dpadCollapseBtn.style.left  = (rect.left + 99) + 'px';
+    dpadCollapseBtn.style.top   = (rect.top  + 7)  + 'px';
+    dpadCollapseBtn.style.right = 'auto';
+  }
+  function applyDpadOpen(open) {
+    floatDpad.classList.toggle('open', open);
+    if (open && !floatDpad.classList.contains('collapsed')) {
+      requestAnimationFrame(() => { syncCollapseBtn(); dpadCollapseBtn.classList.add('visible'); });
+    } else {
+      dpadCollapseBtn.classList.remove('visible');
+    }
+  }
   function dpadApplyPos(left, top) {
-    const size = 130;
-    left = Math.max(0, Math.min(window.innerWidth  - size, left));
-    top  = Math.max(0, Math.min(window.innerHeight - size, top));
+    if (floatDpad.classList.contains('collapsed')) {
+      left = Math.max(-61, Math.min(window.innerWidth  - 69, left));
+      top  = Math.max(-61, Math.min(window.innerHeight - 69, top));
+    } else {
+      left = Math.max(0, Math.min(window.innerWidth  - 130, left));
+      top  = Math.max(0, Math.min(window.innerHeight - 130, top));
+    }
     floatDpad.style.left   = left + 'px';
     floatDpad.style.top    = top  + 'px';
     floatDpad.style.right  = 'auto';
     floatDpad.style.bottom = 'auto';
+    dpadCollapseBtn.style.left  = (left + 99) + 'px';
+    dpadCollapseBtn.style.top   = (top  + 7)  + 'px';
+    dpadCollapseBtn.style.right = 'auto';
+  }
+  function dpadCollapse() {
+    floatDpad.classList.add('collapsed');
+    dpadCollapseBtn.classList.remove('visible');
+    localStorage.setItem('termtunnel_dpad_collapsed', '1');
+  }
+  function dpadExpand() {
+    floatDpad.classList.remove('collapsed');
+    localStorage.removeItem('termtunnel_dpad_collapsed');
+    requestAnimationFrame(() => { syncCollapseBtn(); dpadCollapseBtn.classList.add('visible'); });
   }
   const _savedDpadPos = dpadLoadPos();
   if (_savedDpadPos) dpadApplyPos(_savedDpadPos.left, _savedDpadPos.top);
+  if (localStorage.getItem('termtunnel_dpad_collapsed')) floatDpad.classList.add('collapsed');
 
-  // ── Drag helpers ──────────────────────────────────────────
-  function dpadEndDrag() {
-    clearTimeout(dpadDragTimer);
-    dpadDragTimer = null;
+  // ── Arrow touch handling (dpad body) ─────────────────────
+  floatDpad.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (floatDpad.classList.contains('collapsed')) {
+      const rect = floatDpad.getBoundingClientRect();
+      btnTouchOrigin = { x: t.clientX, y: t.clientY, dpadLeft: rect.left, dpadTop: rect.top };
+      return;
+    }
+    const dir = dpadGetDir(t.clientX, t.clientY);
+    if (dir) dpadActivate(dir);
+  }, { passive: false });
+
+  floatDpad.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    if (floatDpad.classList.contains('collapsed')) {
+      if (dpadDragging && dpadDragStart) {
+        dpadApplyPos(dpadDragStart.dpadLeft + (t.clientX - dpadDragStart.touchX),
+                     dpadDragStart.dpadTop  + (t.clientY - dpadDragStart.touchY));
+      } else if (btnTouchOrigin && Math.hypot(t.clientX - btnTouchOrigin.x, t.clientY - btnTouchOrigin.y) > 4) {
+        dpadDragging  = true;
+        dpadDragStart = { touchX: btnTouchOrigin.x, touchY: btnTouchOrigin.y,
+                          dpadLeft: btnTouchOrigin.dpadLeft, dpadTop: btnTouchOrigin.dpadTop };
+        floatDpad.classList.add('dragging');
+      }
+      return;
+    }
+    dpadActivate(dpadGetDir(t.clientX, t.clientY));
+  }, { passive: false });
+
+  floatDpad.addEventListener('touchend', () => {
+    if (floatDpad.classList.contains('collapsed')) {
+      if (!btnEndDrag()) dpadExpand();
+      return;
+    }
+    dpadStop();
+  });
+  floatDpad.addEventListener('touchcancel', () => {
+    btnEndDrag();
+    dpadStop();
+  });
+
+  // ── Corner button — tap to collapse, drag to move ─────────
+  let btnTouchOrigin = null;
+
+  function btnEndDrag() {
+    btnTouchOrigin = null;
     if (dpadDragging) {
       dpadDragging  = false;
       dpadDragStart = null;
@@ -1884,66 +2110,35 @@
     return false;
   }
 
-  floatDpad.addEventListener('touchstart', (e) => {
+  dpadCollapseBtn.addEventListener('touchstart', (e) => {
     e.preventDefault();
     const t = e.touches[0];
-    const dir = dpadGetDir(t.clientX, t.clientY);
-
-    if (!dir) {
-      // Centre — start long-press timer for drag
-      const rect = floatDpad.getBoundingClientRect();
-      dpadDragTimer = setTimeout(() => {
-        dpadDragging  = true;
-        dpadDragStart = { touchX: t.clientX, touchY: t.clientY, dpadLeft: rect.left, dpadTop: rect.top };
-        floatDpad.classList.add('dragging');
-      }, DPAD_LONG_PRESS);
-
-      // Double-tap to dismiss
-      const now = Date.now();
-      if (now - dpadLastCenterTap < 350) {
-        clearTimeout(dpadDragTimer);
-        dpadLastCenterTap = 0;
-        const s = loadSettings();
-        s.floatDpad = false;
-        saveSettings(s);
-        document.getElementById('set-dpad').checked = false;
-        floatDpad.classList.remove('open');
-      } else {
-        dpadLastCenterTap = now;
-      }
-      return;
-    }
-
-    dpadLastCenterTap = 0;
-    dpadActivate(dir);
+    const rect = floatDpad.getBoundingClientRect();
+    btnTouchOrigin = { x: t.clientX, y: t.clientY, dpadLeft: rect.left, dpadTop: rect.top };
+    floatDpad.classList.add('drag-ready');
   }, { passive: false });
 
-  floatDpad.addEventListener('touchmove', (e) => {
+  dpadCollapseBtn.addEventListener('touchmove', (e) => {
     e.preventDefault();
     const t = e.touches[0];
-
     if (dpadDragging && dpadDragStart) {
-      const dx = t.clientX - dpadDragStart.touchX;
-      const dy = t.clientY - dpadDragStart.touchY;
-      dpadApplyPos(dpadDragStart.dpadLeft + dx, dpadDragStart.dpadTop + dy);
-      return;
+      dpadApplyPos(dpadDragStart.dpadLeft + (t.clientX - dpadDragStart.touchX),
+                   dpadDragStart.dpadTop  + (t.clientY - dpadDragStart.touchY));
+    } else if (btnTouchOrigin && Math.hypot(t.clientX - btnTouchOrigin.x, t.clientY - btnTouchOrigin.y) > 4) {
+      dpadDragging  = true;
+      dpadDragStart = { touchX: btnTouchOrigin.x, touchY: btnTouchOrigin.y,
+                        dpadLeft: btnTouchOrigin.dpadLeft, dpadTop: btnTouchOrigin.dpadTop };
+      floatDpad.classList.add('dragging');
     }
-
-    const dir = dpadGetDir(t.clientX, t.clientY);
-    if (dir && dpadDragTimer) {
-      // Moved to arrow zone before long-press threshold — cancel drag
-      clearTimeout(dpadDragTimer);
-      dpadDragTimer = null;
-    }
-    dpadActivate(dir);
   }, { passive: false });
 
-  floatDpad.addEventListener('touchend', () => {
-    if (!dpadEndDrag()) dpadStop();
+  dpadCollapseBtn.addEventListener('touchend', () => {
+    floatDpad.classList.remove('drag-ready');
+    if (!btnEndDrag()) dpadCollapse();
   });
-  floatDpad.addEventListener('touchcancel', () => {
-    dpadEndDrag();
-    dpadStop();
+  dpadCollapseBtn.addEventListener('touchcancel', () => {
+    floatDpad.classList.remove('drag-ready');
+    btnEndDrag();
   });
 
   // Page swap helpers
@@ -1987,7 +2182,65 @@
     allCtrlKeys.forEach(k => k.classList.remove('active'));
   }
 
-  allCtrlKeys.forEach(k => k.addEventListener('pointerdown', (e) => { e.stopPropagation(); toggleCtrl(); }));
+  // ── Leader Key Picker ─────────────────────────────────────
+  const leaderPicker = document.getElementById('leader-picker');
+
+  function showLeaderPicker() {
+    const s = loadSettings();
+    leaderPicker.querySelectorAll('.lp-item').forEach(item => {
+      item.classList.toggle('active', item.dataset.leader === s.leaderKey);
+    });
+    leaderPicker.classList.add('open');
+    setTimeout(() => document.addEventListener('pointerdown', hideLeaderPickerOutside, { once: true }), 0);
+  }
+  function hideLeaderPicker() {
+    leaderPicker.classList.remove('open');
+  }
+  function hideLeaderPickerOutside(e) {
+    if (!leaderPicker.contains(e.target)) hideLeaderPicker();
+  }
+
+  leaderPicker.querySelectorAll('.lp-item').forEach(item => {
+    item.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      const s = loadSettings();
+      s.leaderKey = item.dataset.leader;
+      saveSettings(s);
+      // Sync the settings panel
+      document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.value === s.leaderKey);
+      });
+      hideLeaderPicker();
+    });
+  });
+
+  // Ctrl: double-tap → send leader; long-press → open leader picker
+  let ctrlLastTap = 0;
+  let ctrlLpTimer = null;
+
+  allCtrlKeys.forEach(k => {
+    k.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      const now = Date.now();
+      if (now - ctrlLastTap < 350) {
+        ctrlLastTap = 0;
+        clearCtrl();
+        sendData(loadSettings().leaderKey || '\x02');
+        return;
+      }
+      ctrlLastTap = now;
+      toggleCtrl();
+    });
+    k.addEventListener('touchstart', () => {
+      ctrlLpTimer = setTimeout(() => {
+        ctrlLastTap = 0;
+        clearCtrl();
+        showLeaderPicker();
+      }, 500);
+    }, { passive: true });
+    k.addEventListener('touchend',   () => clearTimeout(ctrlLpTimer));
+    k.addEventListener('touchcancel', () => clearTimeout(ctrlLpTimer));
+  });
 
   // ── Long-press macro picker on ⌨ ─────────────────────────
   let lpTimer = null;
@@ -2159,7 +2412,7 @@
         kbLpActive = true;
         const alts = JSON.parse(altsRaw);
         kbCalloutExpand(key, alts);
-      }, 400);
+      }, 280);
     }
   }, { passive: false });
 
