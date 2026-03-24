@@ -17,6 +17,68 @@ const TMUX = (() => {
   catch { return null; }
 })();
 
+// Detect tmux prefix and key bindings. Falls back to C-b defaults.
+const TMUX_KEYBINDS = (() => {
+  // Convert a tmux key name to the actual bytes to send
+  function keyChar(k) {
+    const cx = k.match(/^C-(.+)$/i);
+    if (cx) {
+      const c = cx[1].toLowerCase();
+      return c === 'space' ? '\x00' : String.fromCharCode(c.charCodeAt(0) - 96);
+    }
+    const mx = k.match(/^M-(.+)$/i);
+    if (mx) return '\x1b' + mx[1];
+    return { Space: ' ', Enter: '\r', Tab: '\t', Escape: '\x1b', BSpace: '\x7f' }[k] ?? k;
+  }
+
+  let pfx = '\x02'; // C-b default
+  const kb = {
+    prefix: pfx,
+    newWindow: pfx + 'c',
+    nextWindow: pfx + 'n',
+    prevWindow: pfx + 'p',
+    copyMode: pfx + '[',
+    detach: pfx + 'd',
+    zoom: pfx + 'z',
+  };
+  if (!TMUX) return kb;
+  try {
+    // Detect prefix key (handles C-x, plain chars like `, named keys)
+    const prefixOut = execSync(`${TMUX} show-options -g prefix 2>/dev/null`).toString().trim();
+    const pm = prefixOut.match(/^prefix\s+(.+)$/);
+    if (pm) pfx = keyChar(pm[1].trim());
+    kb.prefix = pfx;
+
+    // Map tmux command → keybinds property (first match wins)
+    const wanted = {
+      'new-window':     'newWindow',
+      'next-window':    'nextWindow',
+      'previous-window':'prevWindow',
+      'copy-mode':      'copyMode',
+      'detach-client':  'detach',
+      'resize-pane -Z': 'zoom',
+    };
+    const found = new Set();
+
+    const keysOut = execSync(`${TMUX} list-keys -T prefix 2>/dev/null`).toString();
+    for (const line of keysOut.split('\n')) {
+      // handles optional -r flag: bind-key [-r] -T prefix <key> <cmd>
+      const m = line.match(/^bind-key\s+(?:-r\s+)?-T\s+prefix\s+(\S+)\s+(.+)$/);
+      if (!m) continue;
+      const [, key, cmd] = m;
+      for (const [tmuxCmd, prop] of Object.entries(wanted)) {
+        if (!found.has(prop) && cmd.trim().startsWith(tmuxCmd)) {
+          kb[prop] = pfx + keyChar(key);
+          found.add(prop);
+          break;
+        }
+      }
+    }
+  } catch {}
+  console.log(`[TermTunnel] tmux prefix: ${JSON.stringify(kb.prefix)}, keybinds:`, Object.fromEntries(Object.entries(kb).map(([k,v]) => [k, JSON.stringify(v)])));
+  return kb;
+})();
+
 const app = express();
 app.use(express.static(resolve(__dirname, 'public')));
 
@@ -58,6 +120,21 @@ app.get('/api/peers', async (_req, res) => {
   }
 });
 
+app.get('/api/panes', (req, res) => {
+  const session = req.query.session || 'termtunnel';
+  if (!TMUX) return res.json({ active: 0, total: 1 });
+  try {
+    const out = execSync(`${TMUX} list-panes -t "${session}" -F "#{pane_index}:#{pane_active}" 2>/dev/null`).toString().trim();
+    const panes = out ? out.split('\n').filter(Boolean) : [];
+    const total = panes.length;
+    const activePane = panes.find(p => p.endsWith(':1'));
+    const active = activePane ? parseInt(activePane.split(':')[0]) : 0;
+    res.json({ active, total });
+  } catch {
+    res.json({ active: 0, total: 1 });
+  }
+});
+
 app.get('/api/sessions', (_req, res) => {
   if (!TMUX) return res.json({ sessions: [] });
   try {
@@ -93,6 +170,7 @@ wss.on('connection', (ws, req) => {
   // Attach to (or create) tmux session.
   // If the target session already exists, use a grouped session so the phone
   // gets its own terminal size and doesn't resize the original.
+  let isGrouped = false;
   if (TMUX) {
     let tmuxCmd;
     try {
@@ -100,6 +178,7 @@ wss.on('connection', (ws, req) => {
       // Session exists — mirror it via grouped session
       const phoneSession = `tt_ph_${sessionName}`;
       tmuxCmd = `exec ${TMUX} new-session -A -s "${phoneSession}" -t "${sessionName}" -e TERMTUNNEL=1\r`;
+      isGrouped = true;
     } catch {
       // Session doesn't exist — create it fresh
       tmuxCmd = `exec ${TMUX} new-session -s "${sessionName}" -e TERMTUNNEL=1\r`;
@@ -107,7 +186,33 @@ wss.on('connection', (ws, req) => {
     ptyProcess.write(tmuxCmd);
   }
 
-  send({ type: 'status', data: 'connected' });
+  send({ type: 'status', data: 'connected', keybinds: TMUX_KEYBINDS });
+
+  // For grouped sessions, keep the active pane zoomed so the phone sees a
+  // full-screen view. Re-check on every resize (keyboard open/close, orientation
+  // change) since tmux may unzoom when the terminal dimensions change.
+  // Cache isMultiPane after first successful check to avoid repeated list-panes.
+  let isMultiPane = null; // null = unknown, true/false = cached
+
+  function ensureZoomed() {
+    if (!isGrouped || !TMUX) return;
+    try {
+      const phoneSession = `tt_ph_${sessionName}`;
+      if (isMultiPane === null) {
+        execSync(`${TMUX} has-session -t "${phoneSession}" 2>/dev/null`);
+        const out = execSync(`${TMUX} list-panes -t "${phoneSession}" 2>/dev/null`).toString().trim();
+        isMultiPane = out.split('\n').length > 1;
+      }
+      if (isMultiPane) {
+        const zoomed = execSync(`${TMUX} display-message -t "${phoneSession}" -p "#{window_zoomed_flag}" 2>/dev/null`).toString().trim();
+        if (zoomed !== '1') {
+          execSync(`${TMUX} resize-pane -t "${phoneSession}" -Z 2>/dev/null`);
+        }
+      }
+    } catch {
+      isMultiPane = null; // session not ready yet, retry next resize
+    }
+  }
 
   // Buffer PTY output and flush every 16ms to reduce WebSocket message rate
   let outputBuf = '';
@@ -138,6 +243,19 @@ wss.on('connection', (ws, req) => {
       ptyProcess.write(Buffer.from(msg.data, 'base64').toString());
     } else if (msg.type === 'resize') {
       ptyProcess.resize(msg.cols, msg.rows);
+      ensureZoomed();
+    } else if (msg.type === 'pane-select') {
+      if (TMUX) {
+        try {
+          const phoneSession = `tt_ph_${sessionName}`;
+          const dirFlag = { up: '-U', down: '-D', left: '-L', right: '-R' }[msg.dir];
+          if (dirFlag) {
+            execSync(`${TMUX} resize-pane -t "${phoneSession}" -Z 2>/dev/null`); // unzoom
+            execSync(`${TMUX} select-pane -t "${phoneSession}" ${dirFlag} 2>/dev/null`);
+            execSync(`${TMUX} resize-pane -t "${phoneSession}" -Z 2>/dev/null`); // re-zoom
+          }
+        } catch {}
+      }
     }
   });
 
@@ -145,6 +263,15 @@ wss.on('connection', (ws, req) => {
     console.log(`[WS] Client disconnected (${code})`);
     clearTimeout(flushTimer);
     ptyProcess.kill();
+    // Restore the original session's zoom state if the phone left it zoomed
+    if (TMUX) {
+      try {
+        const zoomed = execSync(`${TMUX} display-message -t "${sessionName}" -p "#{window_zoomed_flag}" 2>/dev/null`).toString().trim();
+        if (zoomed === '1') {
+          execSync(`${TMUX} resize-pane -t "${sessionName}" -Z 2>/dev/null`);
+        }
+      } catch {}
+    }
   });
 
   ws.on('error', (err) => {
