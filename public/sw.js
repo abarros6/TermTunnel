@@ -1,4 +1,4 @@
-const CACHE_NAME = 'termtunnel-v2';
+const CACHE_NAME = 'termtunnel-v3';
 const STATIC_ASSETS = ['/manifest.json'];
 const NETWORK_FIRST = ['/', '/index.html'];
 

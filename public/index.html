@@ -116,6 +116,95 @@
     #scroll-btn.active { color: var(--amber); }
     #scroll-btn:active { opacity: 0.7; }
 
+    /* ── Scroll Pill ── */
+    #scroll-pill {
+      position: fixed;
+      right: 12px;
+      top: 20vh;
+      width: 36px;
+      height: 160px;
+      background: rgba(14, 22, 32, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 55;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      transform: translateX(6px);
+      overflow: hidden;
+    }
+    #scroll-pill.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+    /* Half-highlight that appears while scrolling */
+    #scroll-pill::before {
+      content: '';
+      position: absolute;
+      left: 0; right: 0;
+      height: 50%;
+      background: rgba(58, 122, 255, 0.12);
+      border-radius: 18px 18px 0 0;
+      opacity: 0;
+      transition: opacity 0.1s;
+      pointer-events: none;
+    }
+    #scroll-pill::after {
+      content: '';
+      position: absolute;
+      left: 20%;
+      right: 20%;
+      top: 50%;
+      height: 1px;
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+    #scroll-pill.sp-active-up::before {
+      top: 0;
+      opacity: 1;
+    }
+    #scroll-pill.sp-active-down::before {
+      top: 50%;
+      border-radius: 0 0 18px 18px;
+      opacity: 1;
+    }
+    #scroll-bottom-btn {
+      position: fixed;
+      right: 12px;
+      top: calc(20vh + 160px + 8px);
+      width: 36px;
+      height: 36px;
+      background: rgba(14, 22, 32, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 55;
+      color: rgba(255,255,255,0.6);
+      font-size: 18px;
+      line-height: 36px;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      transform: translateX(6px);
+    }
+    #scroll-bottom-btn.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+
     #settings-btn {
       background: none;
       border: none;
@@ -979,6 +1068,7 @@
     <button id="pane-btn" class="d-none" title="Toggle pane navigation">P0</button>
     <button id="scroll-btn" class="d-none" title="Toggle scroll mode">SCR</button>
     <button id="settings-btn" title="Settings">⚙</button>
+
   </div>
   <div id="reconnect-toast"></div>
 
@@ -1225,6 +1315,10 @@
   <span class="fdp-arrow fdp-down">↓</span>
 </div>
 <button id="dpad-collapse-btn" aria-label="Collapse d-pad"></button>
+
+<!-- Scroll Pill -->
+<div id="scroll-pill"></div>
+<div id="scroll-bottom-btn">↓</div>
 
 <!-- Floating Pill -->
 <button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
@@ -1483,8 +1577,9 @@
   // ── Scroll mode toggle ────────────────────────────────────
   let scrollMode = false;
   let keybinds = {}; // updated on connect from server
-  const scrollBtn = document.getElementById('scroll-btn');
-  const termEl = document.getElementById('terminal');
+  const scrollBtn       = document.getElementById('scroll-btn');
+  const scrollPill      = document.getElementById('scroll-pill');
+  const scrollBottomBtn = document.getElementById('scroll-bottom-btn');
 
   function applyKeybinds(kb) {
     keybinds = kb;
@@ -1494,38 +1589,88 @@
     });
   }
 
-  // Touch-swipe → xterm scrollback
-  let scrollTouchY = null;
-  function onScrollTouchStart(e) {
-    scrollTouchY = e.touches[0].clientY;
-  }
-  function onScrollTouchMove(e) {
-    if (scrollTouchY === null) return;
-    e.preventDefault();
-    const dy = scrollTouchY - e.touches[0].clientY;
-    const lineH = Math.ceil(term.options.fontSize * term.options.lineHeight);
-    const lines = Math.round(dy / lineH);
+  // ── Scroll pill interaction ───────────────────────────────
+  // Uses tmux copy mode for scrolling — this gives access to tmux's full
+  // scrollback history (term.scrollLines() only works in the normal screen
+  // buffer, but tmux uses the alternate screen which has no scrollback).
+  //
+  // SCR on  → sends tmux prefix + [ to enter copy mode
+  // pill    → sends arrow keys into copy mode at a rate driven by touch position
+  // SCR off → sends q to exit copy mode
+  //
+  // Continuous accumulator: quadratic speed curve, slow near center, fast at edges.
+  const SP_MAX_RATE = 0.55; // scroll lines per 16ms tick at full deflection
+
+  let spTicker = null;
+  let spTouchY = null;
+  let spAccum  = 0;
+
+  function spTick() {
+    if (spTouchY === null) return;
+    const rect   = scrollPill.getBoundingClientRect();
+    const half   = rect.height / 2;
+    const offset = spTouchY - (rect.top + half);
+    const norm   = Math.max(-1, Math.min(1, offset / half));
+
+    spAccum += Math.sign(norm) * (norm * norm) * SP_MAX_RATE;
+
+    const lines = Math.trunc(spAccum);
     if (lines !== 0) {
-      term.scrollLines(lines);
-      scrollTouchY = e.touches[0].clientY;
+      // Arrow keys in tmux copy mode scroll line by line
+      const key = lines < 0 ? '\x1b[A' : '\x1b[B';
+      for (let i = 0; i < Math.abs(lines); i++) sendData(key);
+      spAccum -= lines;
     }
   }
-  function onScrollTouchEnd() { scrollTouchY = null; }
+
+  function spUpdateFromTouch(touchY) {
+    const rect   = scrollPill.getBoundingClientRect();
+    const center = rect.top + rect.height / 2;
+    spTouchY     = touchY;
+    scrollPill.classList.toggle('sp-active-up',   touchY < center);
+    scrollPill.classList.toggle('sp-active-down',  touchY >= center);
+  }
+
+  scrollPill.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    clearInterval(spTicker);
+    spAccum = 0;
+    spUpdateFromTouch(e.touches[0].clientY);
+    spTicker = setInterval(spTick, 16);
+  }, { passive: false });
+
+  scrollPill.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    spUpdateFromTouch(e.touches[0].clientY);
+  }, { passive: false });
+
+  function spStopAll() {
+    clearInterval(spTicker);
+    spTicker  = null;
+    spTouchY  = null;
+    spAccum   = 0;
+    scrollPill.classList.remove('sp-active-up', 'sp-active-down');
+  }
+
+  scrollPill.addEventListener('touchend',    spStopAll, { passive: true });
+  scrollPill.addEventListener('touchcancel', spStopAll, { passive: true });
 
   function setScrollMode(on) {
     scrollMode = on;
     scrollBtn.classList.toggle('active', on);
+    scrollPill.classList.toggle('open', on);
+    scrollBottomBtn.classList.toggle('open', on);
     if (on) {
-      termEl.addEventListener('touchstart', onScrollTouchStart, { passive: true });
-      termEl.addEventListener('touchmove',  onScrollTouchMove,  { passive: false });
-      termEl.addEventListener('touchend',   onScrollTouchEnd,   { passive: true });
+      // Enter tmux copy mode (prefix + [)
+      const prefix = keybinds.prefix || '\x02';
+      sendData(prefix + '[');
     } else {
-      termEl.removeEventListener('touchstart', onScrollTouchStart);
-      termEl.removeEventListener('touchmove',  onScrollTouchMove);
-      termEl.removeEventListener('touchend',   onScrollTouchEnd);
-      term.scrollToBottom();
+      spStopAll();
+      sendData('q'); // exit tmux copy mode
     }
   }
+
+  scrollBottomBtn.addEventListener('click', () => setScrollMode(false));
 
   scrollBtn.addEventListener('click', () => setScrollMode(!scrollMode));
 
