@@ -116,6 +116,59 @@
     #scroll-btn.active { color: var(--amber); }
     #scroll-btn:active { opacity: 0.7; }
 
+    /* ── Scroll Pill ── */
+    #scroll-pill {
+      position: fixed;
+      right: 12px;
+      top: 33vh;
+      width: 44px;
+      height: 160px;
+      background: rgba(14, 22, 32, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      z-index: 55;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s, transform 0.15s;
+      transform: translateX(6px);
+    }
+    #scroll-pill.open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateX(0);
+    }
+    .sp-half {
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+    }
+    .sp-arrow {
+      color: rgba(148, 163, 184, 0.65);
+      font-size: 22px;
+      line-height: 1;
+      pointer-events: none;
+      transition: color 0.08s, scale 0.08s;
+    }
+    .sp-arrow.active { color: #3a7aff; }
+    @keyframes sp-flash {
+      0%   { color: #fff; scale: 1.4; }
+      100% { color: #3a7aff; scale: 1; }
+    }
+    .sp-arrow.flash { animation: sp-flash 0.18s ease-out forwards; }
+
     #settings-btn {
       background: none;
       border: none;
@@ -979,6 +1032,7 @@
     <button id="pane-btn" class="d-none" title="Toggle pane navigation">P0</button>
     <button id="scroll-btn" class="d-none" title="Toggle scroll mode">SCR</button>
     <button id="settings-btn" title="Settings">⚙</button>
+
   </div>
   <div id="reconnect-toast"></div>
 
@@ -1225,6 +1279,12 @@
   <span class="fdp-arrow fdp-down">↓</span>
 </div>
 <button id="dpad-collapse-btn" aria-label="Collapse d-pad"></button>
+
+<!-- Scroll Pill -->
+<div id="scroll-pill">
+  <div class="sp-half sp-half-up"><span class="sp-arrow sp-up">↑</span></div>
+  <div class="sp-half sp-half-down"><span class="sp-arrow sp-down">↓</span></div>
+</div>
 
 <!-- Floating Pill -->
 <button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
@@ -1483,8 +1543,8 @@
   // ── Scroll mode toggle ────────────────────────────────────
   let scrollMode = false;
   let keybinds = {}; // updated on connect from server
-  const scrollBtn = document.getElementById('scroll-btn');
-  const termEl = document.getElementById('terminal');
+  const scrollBtn  = document.getElementById('scroll-btn');
+  const scrollPill = document.getElementById('scroll-pill');
 
   function applyKeybinds(kb) {
     keybinds = kb;
@@ -1494,35 +1554,92 @@
     });
   }
 
-  // Touch-swipe → xterm scrollback
-  let scrollTouchY = null;
-  function onScrollTouchStart(e) {
-    scrollTouchY = e.touches[0].clientY;
+  // ── Scroll pill interaction ───────────────────────────────
+  // Listener on the pill itself (not child elements — children don't receive
+  // touch events reliably). Direction determined by which half was touched.
+  // Speed based on distance from center: outer edge = fastest.
+  // 16ms tick loop adjusts rate live as finger moves.
+  const SP_BASE_MS  = 320; // ms before repeat starts
+  const SP_MIN_MS   = 60;  // fastest interval (ms) at pill extreme
+  const SP_START_MS = 180; // interval near center
+
+  let spTicker    = null;
+  let spStartTime = 0;
+  let spLastFire  = 0;
+  let spTouchY    = 0;
+  let spScrollAmt = 0; // set on touchstart: -3 = up (older), +3 = down (newer)
+
+  const spUpEl   = scrollPill.querySelector('.sp-up');
+  const spDownEl = scrollPill.querySelector('.sp-down');
+
+  function spSpeedMs() {
+    const rect   = scrollPill.getBoundingClientRect();
+    const half   = rect.height / 2;
+    const dist   = Math.abs(spTouchY - (rect.top + half));
+    const norm   = Math.min(dist / half, 1);
+    return Math.round(SP_START_MS + (SP_MIN_MS - SP_START_MS) * norm);
   }
-  function onScrollTouchMove(e) {
-    if (scrollTouchY === null) return;
-    e.preventDefault();
-    const dy = scrollTouchY - e.touches[0].clientY;
-    const lineH = Math.ceil(term.options.fontSize * term.options.lineHeight);
-    const lines = Math.round(dy / lineH);
-    if (lines !== 0) {
-      term.scrollLines(lines);
-      scrollTouchY = e.touches[0].clientY;
+
+  function spFlashArrow(amt) {
+    const el = amt < 0 ? spUpEl : spDownEl;
+    el.classList.remove('flash');
+    void el.offsetWidth;
+    el.classList.add('flash');
+    setTimeout(() => el.classList.remove('flash'), 200);
+  }
+
+  function spFire() {
+    term.scrollLines(spScrollAmt);
+    spFlashArrow(spScrollAmt);
+  }
+
+  function spTick() {
+    const now = Date.now();
+    if (now - spStartTime < SP_BASE_MS) return;
+    if (now - spLastFire >= spSpeedMs()) {
+      spFire();
+      spLastFire = now;
     }
   }
-  function onScrollTouchEnd() { scrollTouchY = null; }
+
+  scrollPill.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    spTouchY = e.touches[0].clientY;
+    const rect   = scrollPill.getBoundingClientRect();
+    const center = rect.top + rect.height / 2;
+    // Upper half = scroll toward older content; lower = newer
+    spScrollAmt = spTouchY < center ? -3 : 3;
+    spStartTime = spLastFire = Date.now();
+    clearInterval(spTicker);
+    const activeEl = spScrollAmt < 0 ? spUpEl : spDownEl;
+    spUpEl.classList.remove('active');
+    spDownEl.classList.remove('active');
+    activeEl.classList.add('active');
+    spFire();
+    spTicker = setInterval(spTick, 16);
+  }, { passive: false });
+
+  scrollPill.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    spTouchY = e.touches[0].clientY;
+  }, { passive: false });
+
+  function spStopAll() {
+    clearInterval(spTicker);
+    spTicker = null;
+    spUpEl.classList.remove('active', 'flash');
+    spDownEl.classList.remove('active', 'flash');
+  }
+
+  scrollPill.addEventListener('touchend',    spStopAll, { passive: true });
+  scrollPill.addEventListener('touchcancel', spStopAll, { passive: true });
 
   function setScrollMode(on) {
     scrollMode = on;
     scrollBtn.classList.toggle('active', on);
-    if (on) {
-      termEl.addEventListener('touchstart', onScrollTouchStart, { passive: true });
-      termEl.addEventListener('touchmove',  onScrollTouchMove,  { passive: false });
-      termEl.addEventListener('touchend',   onScrollTouchEnd,   { passive: true });
-    } else {
-      termEl.removeEventListener('touchstart', onScrollTouchStart);
-      termEl.removeEventListener('touchmove',  onScrollTouchMove);
-      termEl.removeEventListener('touchend',   onScrollTouchEnd);
+    scrollPill.classList.toggle('open', on);
+    if (!on) {
+      spStopAll();
       term.scrollToBottom();
     }
   }
