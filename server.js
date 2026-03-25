@@ -202,7 +202,7 @@ wss.on('connection', (ws, req) => {
     let tmuxCmd;
     try {
       execSync(`${TMUX} has-session -t "${sessionName}" 2>/dev/null`);
-      // Session exists — mirror it via grouped session
+      // Session exists — mirror it via grouped session so the phone gets its own terminal size
       const phoneSession = `tt_ph_${sessionName}`;
       tmuxCmd = `exec ${TMUX} new-session -A -s "${phoneSession}" -t "${sessionName}" -e TERMTUNNEL=1\r`;
       isGrouped = true;
