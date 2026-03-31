@@ -273,6 +273,7 @@
       overflow: hidden;
       position: relative;
       background: var(--bg);
+      padding-bottom: var(--toolbar-visible-h, 0px);
     }
 
     #terminal {
@@ -1383,6 +1384,13 @@
       <span class="toggle-slider"></span>
     </label>
   </div>
+  <div class="setting-row">
+    <div class="setting-label">Long-press Key Alts<small>hold key for alternate chars</small></div>
+    <label class="toggle">
+      <input type="checkbox" id="set-longpress" checked>
+      <span class="toggle-slider"></span>
+    </label>
+  </div>
   <div class="setting-row" id="version-row">
     <div class="setting-label">Version<small id="version-hash">—</small></div>
     <button class="sa-btn" id="check-update-btn">Check</button>
@@ -1418,6 +1426,7 @@
     kbFontSize: 22,
     tbArrows: true,
     floatDpad: false,
+    longPress: true,
     leaderKey: '\x02',
   };
 
@@ -1957,6 +1966,7 @@
   document.getElementById('set-reconnect').checked = settings.autoReconnect;
   document.getElementById('set-tb-arrows').checked = settings.tbArrows;
   document.getElementById('set-dpad').checked = settings.floatDpad;
+  document.getElementById('set-longpress').checked = settings.longPress;
   document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.value === settings.leaderKey);
   });
@@ -1985,6 +1995,7 @@
       autoReconnect: document.getElementById('set-reconnect').checked,
       tbArrows: document.getElementById('set-tb-arrows').checked,
       floatDpad: document.getElementById('set-dpad').checked,
+      longPress: document.getElementById('set-longpress').checked,
       leaderKey: document.querySelector('#set-leader .seg-btn.active')?.dataset.value || '\x02',
     };
     saveSettings(s);
@@ -2038,6 +2049,7 @@
 
     // Batch all DOM writes
     document.documentElement.style.setProperty('--kb-actual-h', targetH + 'px');
+    document.documentElement.style.setProperty('--toolbar-visible-h', showToolbar ? 'var(--toolbar-h)' : '0px');
     kbKeyboard.classList.toggle('open', kbState.keyboardOpen);
     kbToolbar.classList.toggle('open', showToolbar);
     tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
@@ -2414,7 +2426,7 @@
   }
 
   tbKbToggle.addEventListener('touchstart', (e) => {
-    lpTimer = setTimeout(() => showMacroPicker(), 400);
+    if (settings.longPress) lpTimer = setTimeout(() => showMacroPicker(), 400);
   }, { passive: true });
 
   tbKbToggle.addEventListener('touchmove', (e) => {
@@ -2523,6 +2535,8 @@
 
   // Shared dispatch logic (used by both pointerdown and touchend paths)
   function kbDispatch(key) {
+    clearTimeout(spaceLpTimer); // cancel any pending space long-press before dispatching another key
+    lastSpaceDown = 0;          // prevent stale space state triggering double-tap period
     let payload;
     if (key.dataset.char !== undefined) {
       const ch = kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char;
@@ -2550,14 +2564,19 @@
     clearTimeout(kbLpTimer);
     kbLpActive = false;
     kbLpKey    = key;
-    kbCalloutShow(key);
+    if (settings.longPress) kbCalloutShow(key);
     const altsRaw = key.dataset.alts;
+    // Dispatch immediately on finger-down for alt-capable keys.
+    // (Non-alt keys are dispatched via pointerdown which fires at the same time.)
     if (altsRaw) {
-      kbLpTimer = setTimeout(() => {
-        kbLpActive = true;
-        const alts = JSON.parse(altsRaw);
-        kbCalloutExpand(key, alts);
-      }, 280);
+      kbDispatch(key);
+      if (settings.longPress) {
+        kbLpTimer = setTimeout(() => {
+          kbLpActive = true;
+          const alts = JSON.parse(altsRaw);
+          kbCalloutExpand(key, alts);
+        }, 280);
+      }
     }
   }, { passive: false });
 
@@ -2569,15 +2588,9 @@
 
   kbKeyboard.addEventListener('touchend', (e) => {
     clearTimeout(kbLpTimer);
-    const key = kbLpKey;
-    if (kbLpActive) {
-      if (kbLpHighIdx >= 0) sendData(kbLpAlts[kbLpHighIdx]);
-      // else: held but no alt selected — do nothing
-    } else if (key?.dataset.alts !== undefined) {
-      // Short tap on an alt-capable key: dispatch normally
-      // (pointerdown was suppressed for these keys)
-      kbDispatch(key);
-    }
+    // If long-press alt picker was active and user slid to an alt, send it
+    if (kbLpActive && kbLpHighIdx >= 0) sendData(kbLpAlts[kbLpHighIdx]);
+    // Short-tap on alt-capable keys is already dispatched on touchstart
     kbCalloutHide();
   }, { passive: true });
 
@@ -2594,12 +2607,16 @@
     if (key.dataset.alts !== undefined) return;
     e.stopPropagation();
 
-    // Double-tap space → period, long-press space → Tab
+    // Double-tap space → period, long-press space → Tab (both gated by longPress setting)
     if (key.classList.contains('kb-key-space')) {
+      if (!settings.longPress) {
+        sendData(' ');
+        return;
+      }
       const now = Date.now();
       const gap = now - lastSpaceDown;
       clearTimeout(spaceLpTimer);
-      if (gap > 100 && gap < 500) {
+      if (gap > 100 && gap < 300) {
         sendData('\x7f. ');
         lastSpaceDown = 0;
       } else {
@@ -2690,7 +2707,7 @@
   // Wire up long-press on each data-lp toolbar button
   kbToolbar.querySelectorAll('[data-lp]').forEach(btn => {
     btn.addEventListener('touchstart', (e) => {
-      tbLpTimer = setTimeout(() => {
+      if (settings.longPress) tbLpTimer = setTimeout(() => {
         const menu = TB_MENUS[btn.id];
         if (menu) openTbPopup(btn, menu);
       }, 400);
