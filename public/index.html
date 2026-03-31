@@ -584,7 +584,7 @@
       color: var(--text);
       font-family: 'JetBrains Mono', monospace;
       font-size: var(--kb-font-size);
-      height: 42px;
+      height: 48px;
       flex: 1;
       min-width: 0;
       padding: 0 2px;
@@ -637,7 +637,7 @@
       color: var(--text);
       align-self: flex-start;
       margin-top: 4px;
-      height: 42px;
+      height: 48px;
     }
     .kb-alt-item.highlighted {
       background: var(--blue);
@@ -767,6 +767,8 @@
     #tb-kb-toggle.active { color: var(--green); }
 .tb-esc { color: rgba(255, 68, 68, 0.7); }
     .tb-esc:active { color: var(--red); }
+    .kb-key-del { color: rgba(255, 68, 68, 0.7); }
+    .kb-key-del:active { color: var(--red); }
     #tb-macros {
       flex: 1;
       color: var(--dim);
@@ -1131,7 +1133,7 @@
         <button class="kb-key" data-char="b">b</button>
         <button class="kb-key" data-char="n">n</button>
         <button class="kb-key" data-char="m">m</button>
-        <button class="kb-key kb-key-wide" data-send="&#x7f;" data-repeat>⌫</button>
+        <button class="kb-key kb-key-wide kb-key-del" data-send="&#x7f;" data-repeat>⌫</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-123-btn">123</button>
@@ -1175,7 +1177,7 @@
         <button class="kb-key" data-send="?">?</button>
         <button class="kb-key" data-send="!">!</button>
         <button class="kb-key" data-send="'">'</button>
-        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;" data-repeat>⌫</button>
+        <button class="kb-key kb-key-sym-nav kb-key-del" data-send="&#x7f;" data-repeat>⌫</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-abc-btn">ABC</button>
@@ -1219,7 +1221,7 @@
         <button class="kb-key" data-send="?">?</button>
         <button class="kb-key" data-send="!">!</button>
         <button class="kb-key" data-send="-">-</button>
-        <button class="kb-key kb-key-sym-nav" data-send="&#x7f;" data-repeat>⌫</button>
+        <button class="kb-key kb-key-sym-nav kb-key-del" data-send="&#x7f;" data-repeat>⌫</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-key-mode" id="kb-abc-from-sym-btn">ABC</button>
@@ -1514,7 +1516,7 @@
   resizeObserver.observe(document.getElementById('terminal-wrap'));
 
   window.visualViewport?.addEventListener('resize', scheduleFit);
-  window.addEventListener('resize', scheduleFit);
+  window.addEventListener('resize', () => { invalidateKeyCache(); scheduleFit(); });
 
   // ── Terminal input → WebSocket ────────────────────────────
   term.onData((data) => {
@@ -2058,7 +2060,7 @@
   }
 
   // Refit terminal after keyboard transition completes
-  kbKeyboard.addEventListener('transitionend', scheduleFit);
+  kbKeyboard.addEventListener('transitionend', () => { invalidateKeyCache(); scheduleFit(); });
 
   // Pill tap — toggle toolbar
   kbPill.addEventListener('pointerdown', (e) => {
@@ -2303,6 +2305,7 @@
   function showKbPage(id) {
     KB_PAGES.forEach(p => document.getElementById(p).classList.toggle('active', p === id));
     document.getElementById('tb-macros').classList.toggle('active', id === 'kb-page-macros');
+    invalidateKeyCache();
   }
 
   document.getElementById('kb-123-btn').addEventListener('pointerdown', (e) => {
@@ -2481,6 +2484,40 @@
   let spaceLpTimer  = null;
   let lastSpaceDown = 0;
 
+  // ── Nearest-key hit testing ──────────────────────────────────
+  let kbKeyCache = null; // { pageId: string, keys: [{el, cx, cy}] }
+
+  function invalidateKeyCache() { kbKeyCache = null; }
+
+  function findNearestKey(x, y) {
+    const activePage = kbKeyboard.querySelector('.kb-page.active');
+    if (!activePage) return null;
+    if (kbKeyCache?.pageId !== activePage.id) {
+      const all = Array.from(activePage.querySelectorAll('.kb-key')).map(el => {
+        const r = el.getBoundingClientRect();
+        const isData = el.hasAttribute('data-char') || el.hasAttribute('data-send');
+        return { el, r, isData, cx: r.left + r.width / 2, cy: r.top + r.height / 2 };
+      });
+      kbKeyCache = { pageId: activePage.id, all };
+    }
+    // Exact rect hit across ALL keys — non-data keys (ctrl, shift, page buttons) return null
+    // so their own handlers take over uninterrupted
+    for (const k of kbKeyCache.all) {
+      const r = k.r;
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+        return k.isData ? k.el : null;
+      }
+    }
+    // Fallback: nearest center for taps in the gaps between keys (data keys only)
+    let nearest = null, minDist = Infinity;
+    for (const k of kbKeyCache.all) {
+      if (!k.isData) continue;
+      const d = (x - k.cx) ** 2 + (y - k.cy) ** 2;
+      if (d < minDist) { minDist = d; nearest = k.el; }
+    }
+    return nearest;
+  }
+
   function kbCalloutShow(key) {
     const label = key.dataset.char || key.textContent.trim() || '·';
     const rect = key.getBoundingClientRect();
@@ -2558,7 +2595,8 @@
   }
 
   kbKeyboard.addEventListener('touchstart', (e) => {
-    const key = e.target.closest('.kb-key[data-char],.kb-key[data-send]');
+    const t = e.changedTouches[0];
+    const key = findNearestKey(t.clientX, t.clientY);
     if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
     e.preventDefault(); // block iOS text selection, callout, and system highlight
     clearTimeout(kbLpTimer);
@@ -2566,9 +2604,9 @@
     kbLpKey    = key;
     if (settings.longPress) kbCalloutShow(key);
     const altsRaw = key.dataset.alts;
-    // Dispatch immediately on finger-down for alt-capable keys.
-    // (Non-alt keys are dispatched via pointerdown which fires at the same time.)
+
     if (altsRaw) {
+      // Alt-capable key: dispatch immediately, arm long-press alt picker
       kbDispatch(key);
       if (settings.longPress) {
         kbLpTimer = setTimeout(() => {
@@ -2576,6 +2614,35 @@
           const alts = JSON.parse(altsRaw);
           kbCalloutExpand(key, alts);
         }, 280);
+      }
+    } else if (key.classList.contains('kb-key-space')) {
+      // Space: double-tap → period, long-press → Tab
+      if (!settings.longPress) {
+        sendData(' ');
+        return;
+      }
+      const now = Date.now();
+      const gap = now - lastSpaceDown;
+      clearTimeout(spaceLpTimer);
+      if (gap > 100 && gap < 300) {
+        sendData('\x7f. ');
+        lastSpaceDown = 0;
+      } else {
+        sendData(' ');
+        lastSpaceDown = now;
+        spaceLpTimer = setTimeout(() => {
+          sendData('\x7f\x09');
+          lastSpaceDown = 0;
+        }, 500);
+      }
+    } else {
+      // All other keys: dispatch immediately
+      kbDispatch(key);
+      if (key.hasAttribute('data-repeat')) {
+        kbStopRepeat();
+        kbRepeatDelay = setTimeout(() => {
+          kbRepeatInterval = setInterval(() => sendData(key.dataset.send), 80);
+        }, 320);
       }
     }
   }, { passive: false });
@@ -2599,50 +2666,6 @@
     kbCalloutHide();
   }, { passive: true });
 
-  // Key dispatch — keyboard panel (event delegation)
-  kbKeyboard.addEventListener('pointerdown', (e) => {
-    const key = e.target.closest('[data-send],[data-char]');
-    if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
-    // Alt-capable keys are dispatched via touchend instead
-    if (key.dataset.alts !== undefined) return;
-    e.stopPropagation();
-
-    // Double-tap space → period, long-press space → Tab (both gated by longPress setting)
-    if (key.classList.contains('kb-key-space')) {
-      if (!settings.longPress) {
-        sendData(' ');
-        return;
-      }
-      const now = Date.now();
-      const gap = now - lastSpaceDown;
-      clearTimeout(spaceLpTimer);
-      if (gap > 100 && gap < 300) {
-        sendData('\x7f. ');
-        lastSpaceDown = 0;
-      } else {
-        sendData(' ');
-        lastSpaceDown = now;
-        spaceLpTimer = setTimeout(() => {
-          sendData('\x7f\x09');
-          lastSpaceDown = 0;
-        }, 500);
-      }
-      return;
-    }
-
-    kbDispatch(key);
-
-    const payload = key.dataset.char !== undefined
-      ? (kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char)
-      : key.dataset.send;
-
-    if (key.hasAttribute('data-repeat')) {
-      kbStopRepeat();
-      kbRepeatDelay = setTimeout(() => {
-        kbRepeatInterval = setInterval(() => sendData(payload), 80);
-      }, 320);
-    }
-  });
 
   // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
   kbToolbar.addEventListener('pointerdown', (e) => {
