@@ -10,7 +10,7 @@ We consolidated from two repos (Curtisflo private + abarros6 public) to a **sing
 git clone https://github.com/abarros6/TermTunnel.git
 cd TermTunnel
 npm install
-cp .env.example .env   # edit with your AUTH_TOKEN and PORT
+cp .env.example .env   # optional — only needed to override PORT or set THEME_COLOR
 npm run dev             # or: node server.js
 ```
 

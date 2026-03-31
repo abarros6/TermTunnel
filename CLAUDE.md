@@ -15,7 +15,7 @@ iPhone (Safari PWA + xterm.js) → WebSocket → Node.js server → node-pty →
 - **public/manifest.json** — PWA manifest for standalone display and home screen install.
 - **public/sw.js** — Service worker for offline caching (cache-first for static, network-first for everything else).
 - **setup.sh** — One-shot setup script for new machines. 9 steps: Xcode CLI tools, Homebrew, Node.js, tmux, npm install, .env creation, macOS firewall, shell prompt, launchd service. Prints connection info at the end.
-- **.env** — Per-machine config. Gitignored. Contains AUTH_TOKEN and PORT. See `.env.example` for the template.
+- **.env** — Optional per-machine config. Only needed to override PORT or set THEME_COLOR. Gitignored. See `.env.example`.
 - **LIMITATIONS.md** — Reference doc covering iOS/Android PWA capabilities and restrictions.
 
 ## Message Protocol (WebSocket)
@@ -23,16 +23,22 @@ iPhone (Safari PWA + xterm.js) → WebSocket → Node.js server → node-pty →
 Connection: `ws(s)://host:port/ws?session=<session-name>`
 
 All messages are JSON:
-- `{type: 'data', data: base64}` — bidirectional terminal I/O
-- `{type: 'resize', cols, rows}` — client → server on terminal resize
-- `{type: 'status', data: 'connected'|'disconnected'}` — server → client
+
+Client → Server:
+- `{type: 'data', data: base64}` — terminal input
+- `{type: 'resize', cols, rows}` — terminal resize
+- `{type: 'pane-select', dir: 'up'|'down'|'left'|'right'}` — navigate between tmux panes
+
+Server → Client:
+- `{type: 'data', data: base64}` — terminal output
+- `{type: 'status', data: 'connected'|'disconnected', keybinds: {...}}` — connection state + tmux keybinds
 
 ## Key Design Decisions
 
 - **No build step** — frontend is a single HTML file loading everything from CDN. Easy to deploy, no toolchain needed on each machine.
 - **ESM throughout** — `"type": "module"` in package.json. Use `import`/`export`, not `require`.
 - **node-pty instead of SSH** — the server spawns a local pty directly. No SSH, no SSH keys, no Remote Login requirement. Simpler and lower latency than the old ssh2 approach.
-- **Per-machine .env** — each Mac has its own AUTH_TOKEN and PORT. `.env` is never committed.
+- **Per-machine .env** — each Mac has its own PORT. `.env` is never committed.
 - **tmux for session persistence** — the pty execs into `tmux new-session -s <name> -e TERMTUNNEL=1`. When the WebSocket drops, tmux keeps the session alive. Reconnecting re-attaches. If a session already exists, the server creates a grouped session (`tt_ph_<name>`) so the phone gets its own terminal size without resizing the original.
 - **Custom shell prompt** — `~/.zshrc` contains a conditional block that sets `PROMPT='%F{green}%1~%f %# '` when `$TERMTUNNEL` is set. Shows only the current folder name inside TermTunnel sessions. Set up by `setup.sh`.
 - **Tailscale for remote access** — no port forwarding, no public exposure. Each Mac gets a permanent `100.x.x.x` IP. The connect screen discovers Tailscale peers and probes them for running TermTunnel instances.
@@ -56,19 +62,22 @@ Run `bash setup.sh` from the repo root after cloning. The script handles everyth
 ## Common Commands
 
 ```bash
-bash setup.sh                                    # set up a new machine (run once)
-node server.js                                   # run directly (for development)
-grep AUTH_TOKEN .env                             # retrieve token
-curl http://localhost:3000/health                # test server is up
-tail -f ~/.termtunnel/server.log                 # view server logs
-launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # restart server
-tmux attach -t termtunnel                        # attach to terminal session locally
-tmux kill-session -t termtunnel                  # kill session (next connect starts fresh)
+bash setup.sh                                                 # set up a new machine (run once)
+bash status.sh                                                # show server status, URLs, sleep settings, tmux sessions
+bash update.sh                                                # check for updates and restart
+node server.js                                                # run directly (for development)
+tail -f ~/.termtunnel/server.log                              # view server logs
+launchctl kickstart -k gui/$(id -u)/com.termtunnel.server     # restart server
+launchctl list com.termtunnel.server                          # check launchd service status
+pmset -g | grep -E '^ *(sleep|disksleep)'                    # check sleep settings
+sudo pmset -a sleep 0 disksleep 0                             # disable sleep (recommended for always-on)
+tmux attach -t termtunnel                                     # attach to terminal session locally
+tmux kill-session -t termtunnel                               # kill session (next connect starts fresh)
 ```
 
 ## Things to Know
 
-- The frontend stores connection config (host, port, token) in `localStorage` and auto-connects on load if config exists.
+- The frontend stores connection config (host, port) in `localStorage` and auto-connects on load if config exists.
 - Auto-reconnect uses exponential backoff (1s → 15s cap, max 5 attempts), controlled by a settings toggle.
 - When the app returns to foreground (`visibilitychange`), if the WebSocket is dead and the user was previously connected, it immediately reconnects without showing the overlay.
 - The **floating status pill** (top-right) shows connection state and opens the settings panel. It hides when the keyboard is open.

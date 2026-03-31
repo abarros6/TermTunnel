@@ -3,64 +3,67 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-PM2="$(which pm2 2>/dev/null || echo "")"
+
+# Detect OS for process manager selection
+case "$(uname)" in
+  Darwin) OS="mac" ;;
+  Linux)  OS="linux" ;;
+  *)      echo "Unsupported OS: $(uname)" >&2; exit 1 ;;
+esac
+
+PLIST="$HOME/Library/LaunchAgents/com.termtunnel.server.plist"
+SERVICE_ID="com.termtunnel.server"
 
 usage() {
   echo "Usage: termtunnel <command>"
   echo ""
   echo "Commands:"
-  echo "  start     Start the server (via pm2)"
+  echo "  start     Start the server"
   echo "  stop      Stop the server"
   echo "  restart   Restart the server"
   echo "  status    Show server status"
   echo "  logs      Tail server logs"
   echo "  url       Print the connection URL (Tailscale)"
-  echo "  token     Print the AUTH_TOKEN"
-  echo "  run       Run the server directly (foreground, no pm2)"
-}
-
-require_pm2() {
-  if [ -z "$PM2" ]; then
-    echo "Error: pm2 not found. Install with: npm install -g pm2" >&2
-    exit 1
-  fi
+  echo "  run       Run the server directly in the foreground"
 }
 
 case "${1:-}" in
   start)
-    require_pm2
-    cd "$PROJECT_DIR"
-    if pm2 show termtunnel &>/dev/null; then
-      pm2 restart termtunnel
+    if [[ "$OS" == "mac" ]]; then
+      launchctl load "$PLIST"
     else
-      pm2 start server.js --name termtunnel
+      systemctl --user start termtunnel
     fi
     ;;
   stop)
-    require_pm2
-    pm2 stop termtunnel
+    if [[ "$OS" == "mac" ]]; then
+      launchctl unload "$PLIST"
+    else
+      systemctl --user stop termtunnel
+    fi
     ;;
   restart)
-    require_pm2
-    pm2 restart termtunnel
+    if [[ "$OS" == "mac" ]]; then
+      launchctl kickstart -k "gui/$(id -u)/$SERVICE_ID"
+    else
+      systemctl --user restart termtunnel
+    fi
     ;;
   status)
-    require_pm2
-    pm2 show termtunnel
+    if [[ "$OS" == "mac" ]]; then
+      launchctl list "$SERVICE_ID" 2>/dev/null || echo "Service not loaded"
+    else
+      systemctl --user status termtunnel
+    fi
     ;;
   logs)
-    require_pm2
-    pm2 logs termtunnel --lines 50
+    tail -f "$HOME/.termtunnel/server.log"
     ;;
   url)
     TS_BIN="$(which tailscale 2>/dev/null || echo "/Applications/Tailscale.app/Contents/MacOS/Tailscale")"
     TS_IP="$("$TS_BIN" ip -4 2>/dev/null || echo "tailscale-not-running")"
     PORT="$(cd "$PROJECT_DIR" && grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 || echo "3000")"
     echo "http://${TS_IP}:${PORT}"
-    ;;
-  token)
-    cd "$PROJECT_DIR"
-    grep AUTH_TOKEN .env | cut -d= -f2
     ;;
   run)
     cd "$PROJECT_DIR"

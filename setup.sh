@@ -163,8 +163,6 @@ if [[ -f .env ]]; then
   warn ".env already exists — skipping (delete it and re-run to regenerate)"
 else
   cp .env.example .env
-  AUTH_TOKEN=$(node -e "const c=require('crypto'); process.stdout.write(c.randomBytes(32).toString('hex'))")
-  sedi "s/AUTH_TOKEN=/AUTH_TOKEN=${AUTH_TOKEN}/" .env
   ok ".env created"
 fi
 
@@ -332,7 +330,6 @@ fi
 sleep 1
 PORT=$(grep '^PORT=' .env | cut -d'=' -f2 || echo "3000")
 PORT=${PORT:-3000}
-AUTH=$(grep '^AUTH_TOKEN=' .env | cut -d'=' -f2)
 
 SERVER_OK=false
 if curl -sf "http://localhost:${PORT}/health" &>/dev/null; then
@@ -356,20 +353,16 @@ else
   warn "Server health check failed — check: tail -f ~/.termtunnel/server.log"
 fi
 
-echo ""
-echo -e "  ${BOLD}Your auth token:${RESET}"
-echo -e "  ${GREEN}${AUTH}${RESET}"
-echo ""
-
 if [[ -n "$TAILSCALE_IP" ]]; then
+  echo ""
   echo -e "  ${BOLD}Connect from your phone:${RESET}"
   echo -e "  Open Safari and go to: ${GREEN}http://${TAILSCALE_IP}:${PORT}${RESET}"
-  echo -e "  Enter the token above when prompted."
   echo ""
   echo -e "  ${DIM}Or scan this QR code with your iPhone camera:${RESET}"
   echo ""
   qrencode -t UTF8 "http://${TAILSCALE_IP}:${PORT}" 2>/dev/null | sed 's/^/  /' || true
 else
+  echo ""
   echo -e "  ${BOLD}Connect from your phone:${RESET}"
   echo -e "  ${AMBER}Tailscale is not installed or not connected.${RESET}"
   echo -e "  ${TAILSCALE_INSTALL_HINT}"
@@ -377,7 +370,6 @@ else
 fi
 
 echo ""
-echo -e "  ${DIM}grep AUTH_TOKEN .env                  # show token anytime${RESET}"
 echo -e "  ${DIM}tail -f ~/.termtunnel/server.log       # view server logs${RESET}"
 if [[ "$OS" == "mac" ]]; then
   echo -e "  ${DIM}launchctl kickstart -k gui/$(id -u)/com.termtunnel.server  # restart${RESET}"
