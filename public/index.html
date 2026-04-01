@@ -31,9 +31,11 @@
       --red: #ff4444;
       --text: #b3b1ad;
       --dim: #4a5568;
-      --toolbar-h: 44px;
+      --toolbar-h: clamp(38px, 5.2dvh, 52px);
       --kb-actual-h: 0px;
-      --kb-font-size: 22px;
+      --kb-font-size: clamp(16px, 5.6vw, 26px);
+      --key-h: clamp(38px, 5.7dvh, 58px);
+      --kb-max-h: clamp(240px, 44dvh, 400px);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -569,7 +571,7 @@
       user-select: none;
       -webkit-touch-callout: none;
     }
-    #kb-keyboard.open { max-height: 370px; }
+    #kb-keyboard.open { max-height: var(--kb-max-h); }
 
     .kb-page { display: none; padding: 8px 3px env(safe-area-inset-bottom); }
     .kb-page.active { display: block; }
@@ -588,7 +590,7 @@
       color: var(--text);
       font-family: 'JetBrains Mono', monospace;
       font-size: var(--kb-font-size);
-      height: 48px;
+      height: var(--key-h);
       flex: 1;
       min-width: 0;
       padding: 0 2px;
@@ -641,17 +643,17 @@
       color: var(--text);
       align-self: flex-start;
       margin-top: 4px;
-      height: 48px;
+      height: var(--key-h);
     }
     .kb-alt-item.highlighted {
       background: var(--blue);
       color: #000;
     }
 
-    .kb-key-wide   { flex: 0 0 56px; }
+    .kb-key-wide   { flex: 0 0 14vw; }
     .kb-key-return {
-      flex: 0 0 90px;
-      font-size: 28px;
+      flex: 0 0 23vw;
+      font-size: clamp(20px, 7vw, 32px);
       color: var(--green);
       background: rgba(0,255,159,0.08);
       border-color: rgba(0,255,159,0.3);
@@ -660,18 +662,18 @@
     .kb-key-return:active { background: rgba(0,255,159,0.22); }
 
     .kb-key-space  { flex: 1; }
-    .kb-key-ctrl  { flex: 0 0 48px; font-size: 11px; }
-    .kb-key-shift { flex: 0 0 38px; }
-    .kb-row:nth-child(2) { padding: 0 18px; }
+    .kb-key-ctrl  { flex: 0 0 12vw; font-size: 11px; }
+    .kb-key-shift { flex: 0 0 10vw; }
+    .kb-row:nth-child(2) { padding: 0 4.6vw; }
     .kb-row:nth-child(3) { padding: 0 2px; }
     #kb-page-qwerty.shifted .kb-key[data-char] { text-transform: uppercase; }
 
-    .kb-key-mode { flex: 0 0 48px; font-size: 11px; color: var(--blue); }
+    .kb-key-mode { flex: 0 0 12vw; font-size: 11px; color: var(--blue); }
     .kb-key-mode:active { border-color: var(--blue); color: var(--blue); }
 
     /* Shift-style action key — used in the #+= / 123 toggle row */
     .kb-key-sym-nav {
-      flex: 0 0 52px;
+      flex: 0 0 13vw;
       font-size: 11px;
       background: #141d28;
       color: var(--dim);
