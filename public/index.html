@@ -763,8 +763,7 @@
       transition: color 0.08s, background 0.08s;
     }
     .tb-key:active { color: var(--green); background: rgba(0,255,159,0.06); }
-    #tb-kb-toggle { font-size: 18px; }
-    #tb-kb-toggle.active { color: var(--green); }
+
 .tb-esc { color: rgba(255, 68, 68, 0.7); }
     .tb-esc:active { color: var(--red); }
     .kb-key-del { color: rgba(255, 68, 68, 0.7); }
@@ -846,20 +845,6 @@
       min-width: 28px;
     }
 
-    #tb-kb-toggle {
-      flex: 2;
-      color: var(--blue);
-      font-size: 20px;
-      background: rgba(92, 207, 230, 0.08);
-      border-left: 1px solid var(--border);
-    }
-    #tb-kb-toggle:active { background: rgba(92, 207, 230, 0.18); }
-    #tb-kb-toggle.active {
-      color: var(--blue);
-      background: rgba(92, 207, 230, 0.16);
-      border-left-color: rgba(92, 207, 230, 0.3);
-    }
-
     /* ── Toolbar Long-Press Popup ── */
     #tb-popup {
       position: fixed;
@@ -929,37 +914,6 @@
       color: var(--green);
     }
 
-    /* ── Floating Pill ── */
-    #kb-pill {
-      position: fixed;
-      bottom: calc(12px + env(safe-area-inset-bottom));
-      right: 14px;
-      background: rgba(17, 24, 32, 0.88);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      color: var(--dim);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 15px;
-      letter-spacing: 0.12em;
-      padding: 7px 14px;
-      cursor: pointer;
-      z-index: 49;
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      transition: bottom 0.28s cubic-bezier(0.32, 0.72, 0, 1),
-                  opacity 0.18s, color 0.18s, border-color 0.18s;
-    }
-    #kb-pill.active {
-      bottom: calc(var(--toolbar-h) + 12px + env(safe-area-inset-bottom));
-      color: var(--text);
-      border-color: var(--dim);
-    }
-    #kb-pill.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
 
     /* ── Floating D-Pad ── */
     #float-dpad {
@@ -1270,7 +1224,7 @@
 <!-- Key press callout (popup above key on tap/hold) -->
 <div id="kb-callout"></div>
 
-<!-- Macro Picker (long-press on ⌨) -->
+<!-- Macro Picker (long-press fn) -->
 <div id="macro-picker">
   <div class="mp-item" data-send="&#x02;" data-tmux-cmd="prefix">tmux prefix (Ctrl+B)</div>
   <div class="mp-item" data-send="&#x02;c" data-tmux-cmd="newWindow">tmux new window</div>
@@ -1307,7 +1261,6 @@
   <button class="tb-key tb-arrow" data-send="&#x1b;[A">↑</button>
   <button class="tb-key tb-arrow" data-send="&#x1b;[B">↓</button>
   <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[C"><span>↑</span></button>
-  <button class="tb-key" id="tb-kb-toggle">⌨</button>
 </div>
 
 <!-- Floating D-Pad -->
@@ -1323,8 +1276,6 @@
 <div id="scroll-pill"></div>
 <div id="scroll-bottom-btn">↓</div>
 
-<!-- Floating Pill -->
-<button id="kb-pill" aria-label="Show keyboard toolbar">···</button>
 
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
@@ -2028,12 +1979,10 @@
   // ── Custom Keyboard ───────────────────────────────────────
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
-  const kbPill      = document.getElementById('kb-pill');
   const kbCtrlKey    = document.getElementById('kb-ctrl');
   const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
   const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
   const kbShiftKey  = document.getElementById('kb-shift');
-  const tbKbToggle  = document.getElementById('tb-kb-toggle');
   const macroPicker = document.getElementById('macro-picker');
 
   const kbState = {
@@ -2054,38 +2003,51 @@
     document.documentElement.style.setProperty('--toolbar-visible-h', showToolbar ? 'var(--toolbar-h)' : '0px');
     kbKeyboard.classList.toggle('open', kbState.keyboardOpen);
     kbToolbar.classList.toggle('open', showToolbar);
-    tbKbToggle.classList.toggle('active', kbState.keyboardOpen);
-    kbPill.classList.toggle('active', showToolbar);
-    kbPill.classList.toggle('hidden', kbState.keyboardOpen);
   }
 
   // Refit terminal after keyboard transition completes
   kbKeyboard.addEventListener('transitionend', () => { invalidateKeyCache(); scheduleFit(); });
 
-  // Pill tap — toggle toolbar
-  kbPill.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    if (kbState.keyboardOpen) return;
-    kbState.toolbarOpen = !kbState.toolbarOpen;
-    applyKbState();
-  });
-
-  // Keyboard toggle button in toolbar
-  tbKbToggle.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    kbState.keyboardOpen = !kbState.keyboardOpen;
-    if (!kbState.keyboardOpen) kbState.toolbarOpen = true; // keep toolbar visible
-    applyKbState();
-  });
-
   // Tap-outside collapses toolbar (only when toolbar open, keyboard closed)
+  // Excludes terminal-wrap — the terminal tap handler manages that case
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
-    if (!kbToolbar.contains(e.target) && !kbPill.contains(e.target) && !floatDpad.contains(e.target) && !dpadCollapseBtn.contains(e.target)) {
+    const termWrapEl = document.getElementById('terminal-wrap');
+    if (!kbToolbar.contains(e.target) && !floatDpad.contains(e.target) && !dpadCollapseBtn.contains(e.target) && !termWrapEl.contains(e.target)) {
       kbState.toolbarOpen = false;
       applyKbState();
     }
   });
+
+  // Tap terminal to open/dismiss keyboard
+  {
+    const termWrap = document.getElementById('terminal-wrap');
+    const connectOverlayEl = document.getElementById('connect-overlay');
+    let termTap = null;
+
+    termWrap.addEventListener('touchstart', (e) => {
+      if (!connectOverlayEl.classList.contains('hidden')) return;
+      const t = e.changedTouches[0];
+      termTap = { x: t.clientX, y: t.clientY, time: Date.now(), moved: false };
+    }, { passive: true, capture: true });
+
+    termWrap.addEventListener('touchmove', (e) => {
+      if (!termTap) return;
+      const t = e.changedTouches[0];
+      if (Math.hypot(t.clientX - termTap.x, t.clientY - termTap.y) > 8) termTap.moved = true;
+    }, { passive: true, capture: true });
+
+    termWrap.addEventListener('touchend', (e) => {
+      if (!termTap) return;
+      const { moved, time } = termTap;
+      termTap = null;
+      if (moved || Date.now() - time > 300) return;
+      const open = !kbState.keyboardOpen;
+      kbState.keyboardOpen = open;
+      kbState.toolbarOpen  = open;
+      applyKbState();
+    }, { passive: true, capture: true });
+  }
 
   // ── Floating D-Pad — unified drag surface ────────────────
   const DPAD_KEYS_NORMAL = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
@@ -2428,27 +2390,27 @@
     if (lpHighlighted) lpHighlighted.classList.add('highlighted');
   }
 
-  tbKbToggle.addEventListener('touchstart', (e) => {
+  // Long-press fn → macro picker; short tap → toggle macros page (handled by pointerdown)
+  tbMacros.addEventListener('touchstart', (e) => {
     if (settings.longPress) lpTimer = setTimeout(() => showMacroPicker(), 400);
   }, { passive: true });
 
-  tbKbToggle.addEventListener('touchmove', (e) => {
+  tbMacros.addEventListener('touchmove', (e) => {
     if (!lpActive) return;
     const t = e.touches[0];
     highlightAt(t.clientX, t.clientY);
   }, { passive: true });
 
-  tbKbToggle.addEventListener('touchend', (e) => {
+  tbMacros.addEventListener('touchend', (e) => {
     clearTimeout(lpTimer);
     if (lpActive) {
       const payload = lpHighlighted?.dataset.send;
       hideMacroPicker();
       if (payload) sendData(payload);
     }
-    // Short tap (no picker shown) — handled by existing pointerdown on tbKbToggle
   });
 
-  tbKbToggle.addEventListener('touchcancel', () => {
+  tbMacros.addEventListener('touchcancel', () => {
     clearTimeout(lpTimer);
     hideMacroPicker();
   });
@@ -2670,7 +2632,7 @@
   // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
   kbToolbar.addEventListener('pointerdown', (e) => {
     const key = e.target.closest('[data-send]');
-    if (!key || key === tbKbToggle) return;
+    if (!key) return;
     if (key.hasAttribute('data-lp')) return;
     e.stopPropagation();
     if (paneNavMode && key.classList.contains('tb-arrow')) {
