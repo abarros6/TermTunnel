@@ -273,7 +273,7 @@
       overflow: hidden;
       position: relative;
       background: var(--bg);
-      padding-bottom: var(--toolbar-visible-h, 0px);
+      padding-bottom: calc(var(--toolbar-visible-h, 0px) + var(--kb-actual-h, 0px));
     }
 
     #terminal {
@@ -555,7 +555,11 @@
 
     /* ── Custom Keyboard Panel ── */
     #kb-keyboard {
-      flex-shrink: 0;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 40;
       background: var(--surface);
       box-shadow: inset 0 1px 0 var(--border);
       overflow: hidden;
