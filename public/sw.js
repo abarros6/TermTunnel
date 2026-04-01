@@ -1,5 +1,5 @@
 const CACHE_NAME = 'termtunnel-v3';
-const STATIC_ASSETS = ['/manifest.json'];
+const STATIC_ASSETS = ['/manifest.json', '/style.css', '/app.js'];
 const NETWORK_FIRST = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
