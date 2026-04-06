@@ -508,9 +508,12 @@
       let opts = '';
       // If last-used session is not in the active list, show it as a special option
       if (saved.session && !(sessions || []).includes(saved.session)) {
-        opts += `<option value="__last__">↩ last used: ${saved.session}</option>`;
+        opts += `<option value="__last__">↩ last used: ${saved.session.replace(/^forge\//, '')}</option>`;
       }
-      opts += (sessions || []).map(s => `<option value="${s}">${s}</option>`).join('');
+      opts += (sessions || []).map(s => {
+        const display = s.replace(/^forge\//, '');
+        return `<option value="${s}">${display}</option>`;
+      }).join('');
       opts += '<option value="__new__">＋  New session…</option>';
       selSession.innerHTML = opts;
       // Pre-select last-used if it's in the active list
