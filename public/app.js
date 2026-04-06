@@ -182,6 +182,79 @@
     paneBtn.classList.toggle('active', paneNavMode);
   });
 
+  // ── Window picker ────────────────────────────────────────
+  const windowPicker = document.getElementById('window-picker');
+  const windowList = document.getElementById('window-list');
+  const windowBtn = document.getElementById('window-btn');
+  let windowTimer = null;
+
+  async function showWindowPicker() {
+    const { session } = loadConn();
+    try {
+      const r = await fetch(`/api/windows?session=${encodeURIComponent(session || 'termtunnel')}`);
+      if (!r.ok) throw new Error();
+      const { windows } = await r.json();
+      if (!windows || windows.length <= 1) return;
+      windowList.innerHTML = windows.map(w => `
+        <button class="window-btn ${w.active ? 'active' : ''}" data-index="${w.index}">
+          <span class="win-index">${w.index}</span>
+          <span class="win-name">${w.name}</span>
+          ${w.active ? '<span class="win-badge">current</span>' : ''}
+        </button>
+      `).join('');
+      windowPicker.classList.remove('hidden');
+    } catch {}
+  }
+
+  function hideWindowPicker() {
+    windowPicker.classList.add('hidden');
+  }
+
+  windowList.addEventListener('click', (e) => {
+    const btn = e.target.closest('.window-btn');
+    if (!btn) return;
+    sendMsg({ type: 'select-window', index: parseInt(btn.dataset.index) });
+    hideWindowPicker();
+    if (term) term.focus();
+  });
+
+  windowPicker.addEventListener('click', (e) => {
+    if (e.target === windowPicker) {
+      hideWindowPicker();
+      if (term) term.focus();
+    }
+  });
+
+  windowBtn.addEventListener('click', () => showWindowPicker());
+
+  async function pollWindowCount() {
+    const { session } = loadConn();
+    try {
+      const r = await fetch(`/api/windows?session=${encodeURIComponent(session || 'termtunnel')}`);
+      if (!r.ok) throw new Error();
+      const { windows } = await r.json();
+      if (windows && windows.length > 1) {
+        windowBtn.classList.remove('d-none');
+      } else {
+        windowBtn.classList.add('d-none');
+      }
+    } catch {
+      windowBtn.classList.add('d-none');
+    }
+  }
+
+  function startWindowPolling() {
+    stopWindowPolling();
+    pollWindowCount();
+    windowTimer = setInterval(pollWindowCount, 3000);
+  }
+
+  function stopWindowPolling() {
+    clearInterval(windowTimer);
+    windowTimer = null;
+    windowBtn.classList.add('d-none');
+  }
+
   // ── Scroll mode toggle ────────────────────────────────────
   let scrollMode = false;
   let keybinds = {}; // updated on connect from server
@@ -333,12 +406,15 @@
           term.focus();
           scrollBtn.classList.remove('d-none');
           startPanePolling();
+          startWindowPolling();
+          showWindowPicker();
         } else if (msg.data === 'disconnected') {
           if (ws) ws.onclose = null;
           setStatus('idle');
           setScrollMode(false);
           scrollBtn.classList.add('d-none');
           stopPanePolling();
+          stopWindowPolling();
           scheduleReconnect();
         }
       } else if (msg.type === 'error') {
@@ -356,6 +432,7 @@
     ws.onclose = () => {
       setStatus('error');
       stopPanePolling();
+      stopWindowPolling();
       scheduleReconnect();
     };
   }

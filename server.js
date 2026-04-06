@@ -173,6 +173,25 @@ app.get('/api/sessions', (_req, res) => {
   }
 });
 
+app.get('/api/windows', (req, res) => {
+  const session = req.query.session || 'termtunnel';
+  if (!TMUX) return res.json({ windows: [] });
+  try {
+    const realSession = session.replace(/^tt_ph_/, '');
+    const out = execSync(
+      `${TMUX} list-windows -t "${realSession}" -F "#{window_index}\t#{window_name}\t#{window_active}" 2>/dev/null`,
+      { encoding: 'utf8', timeout: 2000 }
+    ).trim();
+    const windows = out.split('\n').filter(Boolean).map(line => {
+      const [index, name, active] = line.split('\t');
+      return { index: parseInt(index), name, active: active === '1' };
+    });
+    res.json({ windows });
+  } catch {
+    res.json({ windows: [] });
+  }
+});
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 
@@ -271,6 +290,13 @@ wss.on('connection', (ws, req) => {
     } else if (msg.type === 'resize') {
       ptyProcess.resize(msg.cols, msg.rows);
       ensureZoomed();
+    } else if (msg.type === 'select-window') {
+      if (TMUX && sessionName) {
+        try {
+          const phoneSession = `tt_ph_${sessionName}`;
+          execSync(`${TMUX} select-window -t "${phoneSession}":${parseInt(msg.index)} 2>/dev/null`);
+        } catch {}
+      }
     } else if (msg.type === 'pane-select') {
       if (TMUX) {
         try {

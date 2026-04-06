@@ -27,6 +27,7 @@
   <!-- Header -->
   <div id="status-bar">
     <div id="status-dot"></div>
+    <button id="window-btn" class="d-none" title="Switch window">W</button>
     <button id="pane-btn" class="d-none" title="Toggle pane navigation">P0</button>
     <button id="scroll-btn" class="d-none" title="Toggle scroll mode">SCR</button>
     <button id="settings-btn" title="Settings">⚙</button>
@@ -51,6 +52,13 @@
 
         <button id="connect-btn" disabled>CONNECT</button>
         <div id="connect-error"></div>
+      </div>
+    </div>
+
+    <div id="window-picker" class="hidden">
+      <div class="window-picker-card">
+        <div class="window-picker-title">Windows</div>
+        <div id="window-list"></div>
       </div>
     </div>
   </div>
