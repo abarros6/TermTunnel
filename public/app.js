@@ -24,9 +24,6 @@
     autoReconnect: true,
     kbFontSize: 22,
     tbArrows: true,
-    floatDpad: false,
-    longPress: true,
-    leaderKey: '\x02',
   };
 
   function loadSettings() {
@@ -137,50 +134,6 @@
   function setStatus(state) {
     dot.className = state || '';
   }
-
-  // ── Pane navigation ──────────────────────────────────────
-  let paneNavMode = false;
-  let paneTimer = null;
-  const paneBtn = document.getElementById('pane-btn');
-  const ARROW_DIRS = { '\x1b[A': 'up', '\x1b[B': 'down', '\x1b[C': 'right', '\x1b[D': 'left' };
-
-  async function pollPanes() {
-    const { session } = loadConn();
-    try {
-      const r = await fetch(`/api/panes?session=${encodeURIComponent(session || 'termtunnel')}`);
-      if (!r.ok) throw new Error();
-      const { active, total } = await r.json();
-      if (total > 1) {
-        paneBtn.textContent = `P${active}`;
-        paneBtn.classList.remove('d-none');
-      } else {
-        paneBtn.classList.add('d-none');
-        paneNavMode = false;
-        paneBtn.classList.remove('active');
-      }
-    } catch {
-      paneBtn.classList.add('d-none');
-    }
-  }
-
-  function startPanePolling() {
-    stopPanePolling();
-    pollPanes();
-    paneTimer = setInterval(pollPanes, 1000);
-  }
-
-  function stopPanePolling() {
-    clearInterval(paneTimer);
-    paneTimer = null;
-    paneNavMode = false;
-    paneBtn.classList.add('d-none');
-    paneBtn.classList.remove('active');
-  }
-
-  paneBtn.addEventListener('click', () => {
-    paneNavMode = !paneNavMode;
-    paneBtn.classList.toggle('active', paneNavMode);
-  });
 
   // ── Scroll mode toggle ────────────────────────────────────
   let scrollMode = false;
@@ -332,13 +285,11 @@
           doFit();
           term.focus();
           scrollBtn.classList.remove('d-none');
-          startPanePolling();
         } else if (msg.data === 'disconnected') {
           if (ws) ws.onclose = null;
           setStatus('idle');
           setScrollMode(false);
           scrollBtn.classList.add('d-none');
-          stopPanePolling();
           scheduleReconnect();
         }
       } else if (msg.type === 'error') {
@@ -355,7 +306,6 @@
 
     ws.onclose = () => {
       setStatus('error');
-      stopPanePolling();
       scheduleReconnect();
     };
   }
@@ -396,17 +346,14 @@
   // ── Overlay helpers ───────────────────────────────────────
   function showOverlay() {
     document.getElementById('connect-overlay').classList.remove('hidden');
-    applyDpadOpen(false);
   }
   function hideOverlay() {
     document.getElementById('connect-overlay').classList.add('hidden');
-    if (loadSettings().floatDpad) applyDpadOpen(true);
   }
   function setError(msg) {
     document.getElementById('connect-error').textContent = msg;
   }
 
-  // ── Device storage ────────────────────────────────────────
   // ── Session picker ────────────────────────────────────────
   const selSession = document.getElementById('inp-session');
   const inpSessionNew = document.getElementById('inp-session-new');
@@ -482,6 +429,7 @@
 
   document.getElementById('switch-btn').addEventListener('click', () => {
     closeSettings();
+    closeTbPopup();
     if (ws) { ws.onclose = null; ws.close(); ws = null; }
     wasConnected = false;
     setStatus('idle');
@@ -548,13 +496,6 @@
     });
   });
 
-  document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('#set-leader .seg-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-    });
-  });
-
   // Populate settings UI
   document.getElementById('set-fontsize').value = settings.fontSize;
   document.getElementById('set-kb-fontsize').value = settings.kbFontSize;
@@ -564,26 +505,13 @@
   });
   document.getElementById('set-reconnect').checked = settings.autoReconnect;
   document.getElementById('set-tb-arrows').checked = settings.tbArrows;
-  document.getElementById('set-dpad').checked = settings.floatDpad;
-  document.getElementById('set-longpress').checked = settings.longPress;
-  document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.value === settings.leaderKey);
-  });
   document.documentElement.style.setProperty('--kb-font-size', settings.kbFontSize + 'px');
 
-  // Declared here so applyDpadOpen/applyDpadToolbar can reference them at call time
-  const floatDpad       = document.getElementById('float-dpad');
-  const dpadCollapseBtn = document.getElementById('dpad-collapse-btn');
-
-  function applyDpadToolbar(dpadOn, tbArrows) {
-    document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', dpadOn || !tbArrows));
-    document.getElementById('tb-backslash').classList.toggle('hidden', !dpadOn);
-    document.getElementById('tb-tab').classList.toggle('hidden', !dpadOn);
-    document.getElementById('tb-enter').classList.toggle('hidden', !dpadOn);
+  function applyTbArrows(tbArrows) {
+    document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', !tbArrows));
   }
 
-  applyDpadToolbar(settings.floatDpad, settings.tbArrows);
-  // D-pad stays closed until connected (hideOverlay opens it if the setting is on)
+  applyTbArrows(settings.tbArrows);
 
   function applySettings() {
     const s = {
@@ -593,16 +521,10 @@
       cursorStyle: document.querySelector('#set-cursor .seg-btn.active')?.dataset.value || 'block',
       autoReconnect: document.getElementById('set-reconnect').checked,
       tbArrows: document.getElementById('set-tb-arrows').checked,
-      floatDpad: document.getElementById('set-dpad').checked,
-      longPress: document.getElementById('set-longpress').checked,
-      leaderKey: document.querySelector('#set-leader .seg-btn.active')?.dataset.value || '\x02',
     };
     saveSettings(s);
     document.documentElement.style.setProperty('--kb-font-size', s.kbFontSize + 'px');
-    applyDpadToolbar(s.floatDpad, s.tbArrows);
-    // Only open d-pad if connected (connect overlay is hidden)
-    const onConnectScreen = !document.getElementById('connect-overlay').classList.contains('hidden');
-    applyDpadOpen(s.floatDpad && !onConnectScreen);
+    applyTbArrows(s.tbArrows);
     Object.assign(term.options, {
       fontSize: s.fontSize,
       scrollback: s.scrollback,
@@ -617,11 +539,6 @@
     setTimeout(() => btn.classList.remove('flash'), 300);
   }
 
-  // ── Service Worker ────────────────────────────────────────
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(() => {});
-  }
-
   // ── Custom Keyboard ───────────────────────────────────────
   const kbKeyboard  = document.getElementById('kb-keyboard');
   const kbToolbar   = document.getElementById('kb-toolbar');
@@ -629,7 +546,6 @@
   const kbCtrlNumKey = document.getElementById('kb-ctrl-num');
   const kbCtrlSymKey = document.getElementById('kb-ctrl-sym');
   const kbShiftKey  = document.getElementById('kb-shift');
-  const macroPicker = document.getElementById('macro-picker');
 
   const kbState = {
     toolbarOpen: false,
@@ -637,6 +553,8 @@
     ctrlActive: false,
     shiftActive: false,
   };
+
+  const statusBar = document.getElementById('status-bar');
 
   function applyKbState() {
     const showToolbar = kbState.toolbarOpen || kbState.keyboardOpen;
@@ -649,6 +567,7 @@
     document.documentElement.style.setProperty('--toolbar-visible-h', showToolbar ? 'var(--toolbar-h)' : '0px');
     kbKeyboard.classList.toggle('open', kbState.keyboardOpen);
     kbToolbar.classList.toggle('open', showToolbar);
+    statusBar.classList.toggle('pill-hidden', kbState.keyboardOpen);
   }
 
   // Refit terminal after keyboard transition completes
@@ -659,7 +578,7 @@
   document.addEventListener('pointerdown', (e) => {
     if (!kbState.toolbarOpen || kbState.keyboardOpen) return;
     const termWrapEl = document.getElementById('terminal-wrap');
-    if (!kbToolbar.contains(e.target) && !floatDpad.contains(e.target) && !dpadCollapseBtn.contains(e.target) && !termWrapEl.contains(e.target)) {
+    if (!kbToolbar.contains(e.target) && !termWrapEl.contains(e.target)) {
       kbState.toolbarOpen = false;
       applyKbState();
     }
@@ -695,219 +614,6 @@
     }, { passive: true, capture: true });
   }
 
-  // ── Floating D-Pad — unified drag surface ────────────────
-  const DPAD_KEYS_NORMAL = { up: '\x1b[A', down: '\x1b[B', left: '\x1b[D', right: '\x1b[C' };
-  const DPAD_KEYS_APP    = { up: '\x1bOA', down: '\x1bOB', left: '\x1bOD', right: '\x1bOC' };
-  function dpadKey(dir) {
-    return (term?.modes?.applicationCursorKeysMode ? DPAD_KEYS_APP : DPAD_KEYS_NORMAL)[dir];
-  }
-  const DPAD_DEAD  = 16;  // px dead zone from center
-  const DPAD_OUTER = 52;  // px max — ignore presses near arm tips
-  const DPAD_DELAY = 320; // ms before repeat starts
-  const DPAD_RATE  = 180; // ms between repeats
-  let dpadDir     = null;
-  let dpadDelay   = null;
-  let dpadRepeat  = null;
-
-  function dpadGetDir(x, y) {
-    const rect = floatDpad.getBoundingClientRect();
-    const dx = x - (rect.left + rect.width  / 2);
-    const dy = y - (rect.top  + rect.height / 2);
-    if (Math.abs(dx) < DPAD_DEAD && Math.abs(dy) < DPAD_DEAD) return null;
-    if (Math.max(Math.abs(dx), Math.abs(dy)) > DPAD_OUTER) return null;
-    return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
-  }
-
-  function dpadFlash(dir) {
-    const el = floatDpad.querySelector(`.fdp-${dir}`);
-    if (!el) return;
-    el.classList.remove('flash');
-    requestAnimationFrame(() => el.classList.add('flash'));
-  }
-
-  function dpadSend(dir) {
-    if (paneNavMode) {
-      sendMsg({ type: 'pane-select', dir });
-    } else {
-      sendData(dpadKey(dir));
-    }
-    dpadFlash(dir);
-  }
-
-  function dpadClearTimers() {
-    clearTimeout(dpadDelay);
-    clearInterval(dpadRepeat);
-    dpadDelay = dpadRepeat = null;
-  }
-
-  function dpadActivate(dir) {
-    if (dir === dpadDir) return;
-    dpadClearTimers();
-    dpadDir = dir;
-    floatDpad.querySelectorAll('.fdp-arrow').forEach(a =>
-      a.classList.toggle('active', a.classList.contains(`fdp-${dir}`))
-    );
-    if (dir) {
-      dpadSend(dir);
-      dpadDelay = setTimeout(() => {
-        dpadRepeat = setInterval(() => dpadSend(dir), DPAD_RATE);
-      }, DPAD_DELAY);
-    }
-  }
-
-  function dpadStop() {
-    dpadClearTimers();
-    dpadDir = null;
-    floatDpad.querySelectorAll('.fdp-arrow').forEach(a => a.classList.remove('active', 'flash'));
-  }
-
-  let dpadDragging      = false;
-  let dpadDragTimer     = null;
-  let dpadDragStart     = null; // { touchX, touchY, dpadLeft, dpadTop }
-  const DPAD_LONG_PRESS = 180;  // ms hold on handle before drag mode
-
-  // ── Position persistence ──────────────────────────────────
-  function dpadLoadPos() {
-    try { return JSON.parse(localStorage.getItem('termtunnel_dpad_pos') || 'null'); } catch {}
-    return null;
-  }
-  function dpadSavePos(left, top) {
-    localStorage.setItem('termtunnel_dpad_pos', JSON.stringify({ left, top }));
-  }
-  function syncCollapseBtn() {
-    const rect = floatDpad.getBoundingClientRect();
-    dpadCollapseBtn.style.left  = (rect.left + 99) + 'px';
-    dpadCollapseBtn.style.top   = (rect.top  + 7)  + 'px';
-    dpadCollapseBtn.style.right = 'auto';
-  }
-  function applyDpadOpen(open) {
-    floatDpad.classList.toggle('open', open);
-    if (open && !floatDpad.classList.contains('collapsed')) {
-      requestAnimationFrame(() => { syncCollapseBtn(); dpadCollapseBtn.classList.add('visible'); });
-    } else {
-      dpadCollapseBtn.classList.remove('visible');
-    }
-  }
-  function dpadApplyPos(left, top) {
-    if (floatDpad.classList.contains('collapsed')) {
-      left = Math.max(-61, Math.min(window.innerWidth  - 69, left));
-      top  = Math.max(-61, Math.min(window.innerHeight - 69, top));
-    } else {
-      left = Math.max(0, Math.min(window.innerWidth  - 130, left));
-      top  = Math.max(0, Math.min(window.innerHeight - 130, top));
-    }
-    floatDpad.style.left   = left + 'px';
-    floatDpad.style.top    = top  + 'px';
-    floatDpad.style.right  = 'auto';
-    floatDpad.style.bottom = 'auto';
-    dpadCollapseBtn.style.left  = (left + 99) + 'px';
-    dpadCollapseBtn.style.top   = (top  + 7)  + 'px';
-    dpadCollapseBtn.style.right = 'auto';
-  }
-  function dpadCollapse() {
-    floatDpad.classList.add('collapsed');
-    dpadCollapseBtn.classList.remove('visible');
-    localStorage.setItem('termtunnel_dpad_collapsed', '1');
-  }
-  function dpadExpand() {
-    floatDpad.classList.remove('collapsed');
-    localStorage.removeItem('termtunnel_dpad_collapsed');
-    requestAnimationFrame(() => { syncCollapseBtn(); dpadCollapseBtn.classList.add('visible'); });
-  }
-  const _savedDpadPos = dpadLoadPos();
-  if (_savedDpadPos) dpadApplyPos(_savedDpadPos.left, _savedDpadPos.top);
-  if (localStorage.getItem('termtunnel_dpad_collapsed')) floatDpad.classList.add('collapsed');
-
-  // ── Arrow touch handling (dpad body) ─────────────────────
-  floatDpad.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    if (floatDpad.classList.contains('collapsed')) {
-      const rect = floatDpad.getBoundingClientRect();
-      btnTouchOrigin = { x: t.clientX, y: t.clientY, dpadLeft: rect.left, dpadTop: rect.top };
-      return;
-    }
-    const dir = dpadGetDir(t.clientX, t.clientY);
-    if (dir) dpadActivate(dir);
-  }, { passive: false });
-
-  floatDpad.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    if (floatDpad.classList.contains('collapsed')) {
-      if (dpadDragging && dpadDragStart) {
-        dpadApplyPos(dpadDragStart.dpadLeft + (t.clientX - dpadDragStart.touchX),
-                     dpadDragStart.dpadTop  + (t.clientY - dpadDragStart.touchY));
-      } else if (btnTouchOrigin && Math.hypot(t.clientX - btnTouchOrigin.x, t.clientY - btnTouchOrigin.y) > 4) {
-        dpadDragging  = true;
-        dpadDragStart = { touchX: btnTouchOrigin.x, touchY: btnTouchOrigin.y,
-                          dpadLeft: btnTouchOrigin.dpadLeft, dpadTop: btnTouchOrigin.dpadTop };
-        floatDpad.classList.add('dragging');
-      }
-      return;
-    }
-    dpadActivate(dpadGetDir(t.clientX, t.clientY));
-  }, { passive: false });
-
-  floatDpad.addEventListener('touchend', () => {
-    if (floatDpad.classList.contains('collapsed')) {
-      if (!btnEndDrag()) dpadExpand();
-      return;
-    }
-    dpadStop();
-  });
-  floatDpad.addEventListener('touchcancel', () => {
-    btnEndDrag();
-    dpadStop();
-  });
-
-  // ── Corner button — tap to collapse, drag to move ─────────
-  let btnTouchOrigin = null;
-
-  function btnEndDrag() {
-    btnTouchOrigin = null;
-    if (dpadDragging) {
-      dpadDragging  = false;
-      dpadDragStart = null;
-      floatDpad.classList.remove('dragging');
-      const rect = floatDpad.getBoundingClientRect();
-      dpadSavePos(rect.left, rect.top);
-      return true;
-    }
-    return false;
-  }
-
-  dpadCollapseBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    const rect = floatDpad.getBoundingClientRect();
-    btnTouchOrigin = { x: t.clientX, y: t.clientY, dpadLeft: rect.left, dpadTop: rect.top };
-    floatDpad.classList.add('drag-ready');
-  }, { passive: false });
-
-  dpadCollapseBtn.addEventListener('touchmove', (e) => {
-    e.preventDefault();
-    const t = e.touches[0];
-    if (dpadDragging && dpadDragStart) {
-      dpadApplyPos(dpadDragStart.dpadLeft + (t.clientX - dpadDragStart.touchX),
-                   dpadDragStart.dpadTop  + (t.clientY - dpadDragStart.touchY));
-    } else if (btnTouchOrigin && Math.hypot(t.clientX - btnTouchOrigin.x, t.clientY - btnTouchOrigin.y) > 4) {
-      dpadDragging  = true;
-      dpadDragStart = { touchX: btnTouchOrigin.x, touchY: btnTouchOrigin.y,
-                        dpadLeft: btnTouchOrigin.dpadLeft, dpadTop: btnTouchOrigin.dpadTop };
-      floatDpad.classList.add('dragging');
-    }
-  }, { passive: false });
-
-  dpadCollapseBtn.addEventListener('touchend', () => {
-    floatDpad.classList.remove('drag-ready');
-    if (!btnEndDrag()) dpadCollapse();
-  });
-  dpadCollapseBtn.addEventListener('touchcancel', () => {
-    floatDpad.classList.remove('drag-ready');
-    btnEndDrag();
-  });
-
   // Page swap helpers
   const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
   function showKbPage(id) {
@@ -939,7 +645,7 @@
     tbMacros.classList.toggle('active', !onMacros);
   });
 
-  // Sticky Ctrl — syncs all ctrl keys
+  // Sticky Ctrl — single tap toggles modifier
   const allCtrlKeys = [kbCtrlKey, kbCtrlNumKey, kbCtrlSymKey];
   function toggleCtrl() {
     kbState.ctrlActive = !kbState.ctrlActive;
@@ -950,115 +656,11 @@
     allCtrlKeys.forEach(k => k.classList.remove('active'));
   }
 
-  // ── Leader Key Picker ─────────────────────────────────────
-  const leaderPicker = document.getElementById('leader-picker');
-
-  function showLeaderPicker() {
-    const s = loadSettings();
-    leaderPicker.querySelectorAll('.lp-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.leader === s.leaderKey);
-    });
-    leaderPicker.classList.add('open');
-    setTimeout(() => document.addEventListener('pointerdown', hideLeaderPickerOutside, { once: true }), 0);
-  }
-  function hideLeaderPicker() {
-    leaderPicker.classList.remove('open');
-  }
-  function hideLeaderPickerOutside(e) {
-    if (!leaderPicker.contains(e.target)) hideLeaderPicker();
-  }
-
-  leaderPicker.querySelectorAll('.lp-item').forEach(item => {
-    item.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      const s = loadSettings();
-      s.leaderKey = item.dataset.leader;
-      saveSettings(s);
-      // Sync the settings panel
-      document.querySelectorAll('#set-leader .seg-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.value === s.leaderKey);
-      });
-      hideLeaderPicker();
-    });
-  });
-
-  // Ctrl: double-tap → send leader; long-press → open leader picker
-  let ctrlLastTap = 0;
-  let ctrlLpTimer = null;
-
   allCtrlKeys.forEach(k => {
     k.addEventListener('pointerdown', (e) => {
       e.stopPropagation();
-      const now = Date.now();
-      if (now - ctrlLastTap < 350) {
-        ctrlLastTap = 0;
-        clearCtrl();
-        sendData(loadSettings().leaderKey || '\x02');
-        return;
-      }
-      ctrlLastTap = now;
       toggleCtrl();
     });
-    k.addEventListener('touchstart', () => {
-      ctrlLpTimer = setTimeout(() => {
-        ctrlLastTap = 0;
-        clearCtrl();
-        showLeaderPicker();
-      }, 500);
-    }, { passive: true });
-    k.addEventListener('touchend',   () => clearTimeout(ctrlLpTimer));
-    k.addEventListener('touchcancel', () => clearTimeout(ctrlLpTimer));
-  });
-
-  // ── Long-press macro picker on ⌨ ─────────────────────────
-  let lpTimer = null;
-  let lpActive = false;
-  let lpHighlighted = null;
-
-  function showMacroPicker() {
-    lpActive = true;
-    macroPicker.classList.add('open');
-  }
-  function hideMacroPicker() {
-    lpActive = false;
-    macroPicker.classList.remove('open');
-    if (lpHighlighted) {
-      lpHighlighted.classList.remove('highlighted');
-      lpHighlighted = null;
-    }
-  }
-  function highlightAt(x, y) {
-    const el = document.elementFromPoint(x, y);
-    const item = el?.closest('.mp-item') || null;
-    if (item === lpHighlighted) return;
-    if (lpHighlighted) lpHighlighted.classList.remove('highlighted');
-    lpHighlighted = item;
-    if (lpHighlighted) lpHighlighted.classList.add('highlighted');
-  }
-
-  // Long-press fn → macro picker; short tap → toggle macros page (handled by pointerdown)
-  tbMacros.addEventListener('touchstart', (e) => {
-    if (settings.longPress) lpTimer = setTimeout(() => showMacroPicker(), 400);
-  }, { passive: true });
-
-  tbMacros.addEventListener('touchmove', (e) => {
-    if (!lpActive) return;
-    const t = e.touches[0];
-    highlightAt(t.clientX, t.clientY);
-  }, { passive: true });
-
-  tbMacros.addEventListener('touchend', (e) => {
-    clearTimeout(lpTimer);
-    if (lpActive) {
-      const payload = lpHighlighted?.dataset.send;
-      hideMacroPicker();
-      if (payload) sendData(payload);
-    }
-  });
-
-  tbMacros.addEventListener('touchcancel', () => {
-    clearTimeout(lpTimer);
-    hideMacroPicker();
   });
 
   // Sticky Shift — single class toggle instead of mutating 27 key labels
@@ -1076,23 +678,12 @@
   function kbStopRepeat() {
     clearTimeout(kbRepeatDelay);
     clearInterval(kbRepeatInterval);
-    clearTimeout(spaceLpTimer);
     kbRepeatDelay = kbRepeatInterval = null;
   }
   document.addEventListener('pointerup',     kbStopRepeat);
   document.addEventListener('pointercancel', kbStopRepeat);
 
-  // ── Key callout & long-press alternates ─────────────────────────
-  const kbCallout = document.getElementById('kb-callout');
-  let kbLpTimer    = null;
-  let kbLpActive   = false;
-  let kbLpKey      = null;
-  let kbLpAlts     = [];
-  let kbLpHighIdx  = -1;
-  let spaceLpTimer  = null;
-  let lastSpaceDown = 0;
-
-  // ── Nearest-key hit testing ──────────────────────────────────
+  // ── Nearest-key hit testing ───────────────────────────────
   let kbKeyCache = null; // { pageId: string, keys: [{el, cx, cy}] }
 
   function invalidateKeyCache() { kbKeyCache = null; }
@@ -1126,62 +717,8 @@
     return nearest;
   }
 
-  function kbCalloutShow(key) {
-    const label = key.dataset.char || key.textContent.trim() || '·';
-    const rect = key.getBoundingClientRect();
-    const h = 72; // key height (38) + extension above (~34)
-    kbCallout.textContent = label;
-    kbCallout.style.cssText =
-      `left:${rect.left}px;top:${rect.bottom - h}px;width:${rect.width}px;height:${h}px`;
-    kbCallout.classList.add('visible');
-  }
-
-  function kbCalloutExpand(key, alts) {
-    kbLpAlts = alts;
-    kbLpHighIdx = -1;
-    const itemW = 42;
-    const totalW = alts.length * itemW + 8;
-    const rect = key.getBoundingClientRect();
-    const h = 72;
-    const left = Math.max(4, Math.min(
-      rect.left + rect.width / 2 - totalW / 2,
-      window.innerWidth - totalW - 4
-    ));
-    kbCallout.innerHTML = alts.map((a, i) =>
-      `<span class="kb-alt-item" data-idx="${i}">${a}</span>`
-    ).join('');
-    kbCallout.style.cssText =
-      `left:${left}px;top:${rect.bottom - h}px;width:${totalW}px;height:${h}px`;
-  }
-
-  function kbCalloutHide() {
-    kbCallout.classList.remove('visible');
-    kbCallout.innerHTML = '';
-    kbLpActive = false;
-    kbLpKey    = null;
-    kbLpHighIdx = -1;
-  }
-
-  function kbAltHighlight(x, y) {
-    const items = kbCallout.querySelectorAll('.kb-alt-item');
-    let found = -1;
-    items.forEach((item, i) => {
-      const r = item.getBoundingClientRect();
-      item.classList.remove('highlighted');
-      if (x >= r.left && x <= r.right && y >= r.top - 24 && y <= r.bottom + 24) found = i;
-    });
-    if (found >= 0) {
-      items[found].classList.add('highlighted');
-      kbLpHighIdx = found;
-    } else {
-      kbLpHighIdx = -1;
-    }
-  }
-
-  // Shared dispatch logic (used by both pointerdown and touchend paths)
+  // Shared dispatch logic
   function kbDispatch(key) {
-    clearTimeout(spaceLpTimer); // cancel any pending space long-press before dispatching another key
-    lastSpaceDown = 0;          // prevent stale space state triggering double-tap period
     let payload;
     if (key.dataset.char !== undefined) {
       const ch = kbState.shiftActive ? key.dataset.char.toUpperCase() : key.dataset.char;
@@ -1207,86 +744,22 @@
     const key = findNearestKey(t.clientX, t.clientY);
     if (!key || allCtrlKeys.includes(key) || key === kbShiftKey) return;
     e.preventDefault(); // block iOS text selection, callout, and system highlight
-    clearTimeout(kbLpTimer);
-    kbLpActive = false;
-    kbLpKey    = key;
-    if (settings.longPress) kbCalloutShow(key);
-    const altsRaw = key.dataset.alts;
-
-    if (altsRaw) {
-      // Alt-capable key: dispatch immediately, arm long-press alt picker
-      kbDispatch(key);
-      if (settings.longPress) {
-        kbLpTimer = setTimeout(() => {
-          kbLpActive = true;
-          const alts = JSON.parse(altsRaw);
-          kbCalloutExpand(key, alts);
-        }, 280);
-      }
-    } else if (key.classList.contains('kb-key-space')) {
-      // Space: double-tap → period, long-press → Tab
-      if (!settings.longPress) {
-        sendData(' ');
-        return;
-      }
-      const now = Date.now();
-      const gap = now - lastSpaceDown;
-      clearTimeout(spaceLpTimer);
-      if (gap > 100 && gap < 300) {
-        sendData('\x7f. ');
-        lastSpaceDown = 0;
-      } else {
-        sendData(' ');
-        lastSpaceDown = now;
-        spaceLpTimer = setTimeout(() => {
-          sendData('\x7f\x09');
-          lastSpaceDown = 0;
-        }, 500);
-      }
-    } else {
-      // All other keys: dispatch immediately
-      kbDispatch(key);
-      if (key.hasAttribute('data-repeat')) {
-        kbStopRepeat();
-        kbRepeatDelay = setTimeout(() => {
-          kbRepeatInterval = setInterval(() => sendData(key.dataset.send), 80);
-        }, 320);
-      }
+    kbDispatch(key);
+    if (key.hasAttribute('data-repeat')) {
+      kbStopRepeat();
+      kbRepeatDelay = setTimeout(() => {
+        kbRepeatInterval = setInterval(() => sendData(key.dataset.send), 80);
+      }, 320);
     }
   }, { passive: false });
 
-  kbKeyboard.addEventListener('touchmove', (e) => {
-    if (!kbLpActive) return;
-    const t = e.touches[0];
-    kbAltHighlight(t.clientX, t.clientY);
-  }, { passive: true });
-
-  kbKeyboard.addEventListener('touchend', (e) => {
-    clearTimeout(kbLpTimer);
-    // If long-press alt picker was active and user slid to an alt, send it
-    if (kbLpActive && kbLpHighIdx >= 0) sendData(kbLpAlts[kbLpHighIdx]);
-    // Short-tap on alt-capable keys is already dispatched on touchstart
-    kbCalloutHide();
-  }, { passive: true });
-
-  kbKeyboard.addEventListener('touchcancel', () => {
-    clearTimeout(kbLpTimer);
-    kbCalloutHide();
-  }, { passive: true });
-
-
-  // Toolbar key dispatch — skips data-lp buttons (handled by long-press touch events)
+  // Toolbar key dispatch
   kbToolbar.addEventListener('pointerdown', (e) => {
     const key = e.target.closest('[data-send]');
     if (!key) return;
     if (key.hasAttribute('data-lp')) return;
     e.stopPropagation();
-    if (paneNavMode && key.classList.contains('tb-arrow')) {
-      const dir = ARROW_DIRS[key.dataset.send];
-      if (dir) sendMsg({ type: 'pane-select', dir });
-    } else {
-      sendData(key.dataset.send);
-    }
+    sendData(key.dataset.send);
   });
 
   // ── Toolbar long-press system ─────────────────────────────
@@ -1338,7 +811,7 @@
   // Wire up long-press on each data-lp toolbar button
   kbToolbar.querySelectorAll('[data-lp]').forEach(btn => {
     btn.addEventListener('touchstart', (e) => {
-      if (settings.longPress) tbLpTimer = setTimeout(() => {
+      tbLpTimer = setTimeout(() => {
         const menu = TB_MENUS[btn.id];
         if (menu) openTbPopup(btn, menu);
       }, 400);
