@@ -96,7 +96,7 @@ Primary development target is iOS Safari. Android is a secondary target — the 
 
 - **iOS only supports "Add to Home Screen" from Safari** — Chrome, Firefox, and other iOS browsers cannot install PWAs (Apple forces WebKit on all iOS browsers).
 - Installed PWAs run in standalone mode (no browser chrome) when `"display": "standalone"` is set in the manifest.
-- Service worker caches assets — users need to hard-reload or reinstall the PWA to pick up frontend changes during development.
+- No active service worker — assets are fetched directly from the server on each load. No stale cache issues during development.
 - No native "Install App" prompt on iOS like Android/Chrome — the flow is always Share → Add to Home Screen.
 
 ---
@@ -156,11 +156,12 @@ Primary development target is iOS Safari. Android is a secondary target — the 
 
 ---
 
-## Service Worker in Development
+## Service Worker
 
-- The service worker caches assets aggressively and will serve stale HTML/JS during development.
-- Workaround: disable service worker in Safari/Chrome DevTools (Application → Service Workers → Bypass for network), or increment the cache version on each change.
-- On iOS, the only reliable way to force a fresh load without DevTools is to delete and reinstall the PWA.
+- TermTunnel does not use a caching service worker. The app requires a live WebSocket connection so offline caching provides no benefit and causes stale-code problems during updates.
+- `public/sw.js` is an unregister stub — it clears caches from older installs and removes itself. New installs have no active service worker.
+- iOS home screen install works without a service worker (handled by the web manifest alone).
+- Android Chrome requires a service worker for the "Install App" prompt. If Android support is added, a minimal SW will need to be restored. See the Android section below.
 
 ---
 
