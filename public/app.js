@@ -23,7 +23,6 @@
     cursorStyle: 'block',
     autoReconnect: true,
     kbFontSize: 22,
-    tbArrows: true,
   };
 
   function loadSettings() {
@@ -442,6 +441,14 @@
   const panel = document.getElementById('settings-panel');
 
   function openSettings() {
+    const s = loadSettings();
+    document.getElementById('set-fontsize').value = s.fontSize;
+    document.getElementById('set-kb-fontsize').value = s.kbFontSize;
+    document.getElementById('set-scrollback').value = s.scrollback;
+    document.querySelectorAll('#set-cursor .seg-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.value === s.cursorStyle);
+    });
+    document.getElementById('set-reconnect').checked = s.autoReconnect;
     backdrop.classList.add('open');
     panel.classList.add('open');
     fetchVersion();
@@ -496,22 +503,7 @@
     });
   });
 
-  // Populate settings UI
-  document.getElementById('set-fontsize').value = settings.fontSize;
-  document.getElementById('set-kb-fontsize').value = settings.kbFontSize;
-  document.getElementById('set-scrollback').value = settings.scrollback;
-  document.querySelectorAll('#set-cursor .seg-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.value === settings.cursorStyle);
-  });
-  document.getElementById('set-reconnect').checked = settings.autoReconnect;
-  document.getElementById('set-tb-arrows').checked = settings.tbArrows;
   document.documentElement.style.setProperty('--kb-font-size', settings.kbFontSize + 'px');
-
-  function applyTbArrows(tbArrows) {
-    document.querySelectorAll('.tb-arrow').forEach(a => a.classList.toggle('hidden', !tbArrows));
-  }
-
-  applyTbArrows(settings.tbArrows);
 
   function applySettings() {
     const s = {
@@ -520,11 +512,9 @@
       scrollback: parseInt(document.getElementById('set-scrollback').value, 10) || 2000,
       cursorStyle: document.querySelector('#set-cursor .seg-btn.active')?.dataset.value || 'block',
       autoReconnect: document.getElementById('set-reconnect').checked,
-      tbArrows: document.getElementById('set-tb-arrows').checked,
     };
     saveSettings(s);
     document.documentElement.style.setProperty('--kb-font-size', s.kbFontSize + 'px');
-    applyTbArrows(s.tbArrows);
     Object.assign(term.options, {
       fontSize: s.fontSize,
       scrollback: s.scrollback,
@@ -615,10 +605,9 @@
   }
 
   // Page swap helpers
-  const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym', 'kb-page-macros'];
+  const KB_PAGES = ['kb-page-qwerty', 'kb-page-num', 'kb-page-sym'];
   function showKbPage(id) {
     KB_PAGES.forEach(p => document.getElementById(p).classList.toggle('active', p === id));
-    document.getElementById('tb-macros').classList.toggle('active', id === 'kb-page-macros');
     invalidateKeyCache();
   }
 
@@ -636,13 +625,6 @@
   });
   document.getElementById('kb-abc-from-sym-btn').addEventListener('pointerdown', (e) => {
     e.stopPropagation(); showKbPage('kb-page-qwerty');
-  });
-  const tbMacros = document.getElementById('tb-macros');
-  tbMacros.addEventListener('pointerdown', (e) => {
-    e.stopPropagation();
-    const onMacros = document.getElementById('kb-page-macros').classList.contains('active');
-    showKbPage(onMacros ? 'kb-page-qwerty' : 'kb-page-macros');
-    tbMacros.classList.toggle('active', !onMacros);
   });
 
   // Sticky Ctrl — single tap toggles modifier

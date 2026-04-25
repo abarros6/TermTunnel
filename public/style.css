@@ -623,34 +623,7 @@
       background: rgba(0, 255, 159, 0.08);
     }
 
-    /* Macro grid */
-    .kb-macro-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 5px;
-      padding: 6px 4px env(safe-area-inset-bottom);
-    }
-    .kb-macro {
-      background: #1c2635;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      color: var(--blue);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      height: 38px;
-      cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      padding: 0 4px;
-      transition: background 0.08s, border-color 0.08s;
-    }
-    .kb-macro:active { background: #2a3a52; border-color: var(--blue); }
-
-    .kb-footer {
+.kb-footer {
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -710,16 +683,6 @@
     .tb-esc:active { color: var(--red); }
     .kb-key-del { color: rgba(255, 68, 68, 0.7); }
     .kb-key-del:active { color: var(--red); }
-    #tb-macros {
-      flex: 1;
-      color: var(--dim);
-      font-size: 11px;
-      letter-spacing: 0.05em;
-      border-left: 1px solid var(--border);
-    }
-    #tb-macros.active { color: var(--green); }
-    #tb-macros:active { color: var(--green); background: rgba(0,255,159,0.06); }
-
     .tb-arrow {
       font-size: 16px;
       border-left: 1px solid var(--border);
@@ -727,7 +690,6 @@
     }
     .tb-arrow:active { color: #fff; background: rgba(92,207,230,0.2); }
     .tb-arrow-h > span { display: inline-block; transform: rotate(90deg); }
-    .tb-arrow.hidden { display: none; }
 
     /* ── Toolbar Long-Press Popup ── */
     #tb-popup {

@@ -188,35 +188,6 @@
       </div>
     </div>
 
-    <!-- Page 4: Macros -->
-    <div id="kb-page-macros" class="kb-page">
-      <div class="kb-macro-grid">
-        <!-- tmux -->
-        <button class="kb-macro" data-send="&#x02;" data-tmux-cmd="prefix">C-b</button>
-        <button class="kb-macro" data-send="&#x02;c" data-tmux-cmd="newWindow">C-b c</button>
-        <button class="kb-macro" data-send="&#x02;n" data-tmux-cmd="nextWindow">C-b n</button>
-        <button class="kb-macro" data-send="&#x02;p" data-tmux-cmd="prevWindow">C-b p</button>
-        <button class="kb-macro" data-send="&#x02;[" data-tmux-cmd="copyMode">scroll</button>
-        <button class="kb-macro" data-send="&#x02;d" data-tmux-cmd="detach">detach</button>
-        <button class="kb-macro" data-send="&#x02;z" data-tmux-cmd="zoom">zoom</button>
-        <button class="kb-macro" data-send="q">q (exit)</button>
-        <!-- terminal -->
-        <button class="kb-macro" data-send="&#x03;">^C</button>
-        <button class="kb-macro" data-send="&#x04;">^D</button>
-        <button class="kb-macro" data-send="clear&#x0d;">clear</button>
-        <button class="kb-macro" data-send="cd ..&#x0d;">cd ..</button>
-        <!-- git / nav -->
-        <button class="kb-macro" data-send="ls -la&#x0d;">ls -la</button>
-        <button class="kb-macro" data-send="git status&#x0d;">git st</button>
-        <button class="kb-macro" data-send="git add .&#x0d;">git add .</button>
-        <button class="kb-macro" data-send="git diff&#x0d;">git diff</button>
-        <button class="kb-macro" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit</button>
-        <button class="kb-macro" data-send="git log --oneline&#x0d;">git log</button>
-        <button class="kb-macro" data-send="pwd&#x0d;">pwd</button>
-        <button class="kb-macro" data-send="npm run dev&#x0d;">npm dev</button>
-      </div>
-    </div>
-
   </div>
 
 </div>
@@ -266,13 +237,6 @@
       <span class="toggle-slider"></span>
     </label>
   </div>
-  <div class="setting-row">
-    <div class="setting-label">Toolbar Arrows<small>arrow keys in toolbar</small></div>
-    <label class="toggle">
-      <input type="checkbox" id="set-tb-arrows" checked>
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
   <div class="setting-row" id="version-row">
     <div class="setting-label">Version<small id="version-hash">—</small></div>
     <button class="sa-btn" id="check-update-btn">Check</button>
@@ -283,7 +247,7 @@
 <!-- Keyboard Toolbar -->
 <div id="kb-toolbar">
   <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
-  <button class="tb-key" id="tb-macros">fn</button>
+  <button class="tb-key" id="tb-tab" data-send="&#x09;">Tab</button>
   <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[D"><span>↓</span></button>
   <button class="tb-key tb-arrow" data-send="&#x1b;[A">↑</button>
   <button class="tb-key tb-arrow" data-send="&#x1b;[B">↓</button>
