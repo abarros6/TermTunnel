@@ -36,10 +36,10 @@ Sessions run inside **tmux** — switching apps on your phone doesn't kill your 
 ## How It Works
 
 - **server.js** — Node.js server. Serves the PWA and bridges WebSocket connections to a local pty via `node-pty`. No SSH — talks to the shell directly.
-- **public/index.html** — Single-file PWA with xterm.js terminal, custom 3-page keyboard, macro shortcuts, floating status pill, and settings panel. No build step.
+- **public/index.html** — Single-file PWA with xterm.js terminal, custom 3-page keyboard, floating status pill, and settings panel. No build step.
 - **tmux** — Keeps your shell alive when the WebSocket drops. Reconnecting re-attaches to the same session.
 - **Tailscale** — Private encrypted network between your devices. Each Mac gets a stable `100.x.x.x` IP — no port forwarding, no public exposure.
-- **.env** — Optional per-machine config. Only needed if you want a non-default port or custom theme color. Never committed to git.
+- **.env** — Optional per-machine config. Only needed if you want a non-default port. Never committed to git.
 
 ---
 
@@ -105,7 +105,7 @@ The script runs 10 steps automatically:
 | 4 | Installs tmux via Homebrew (if missing) |
 | 5 | Installs qrencode via Homebrew (if missing) |
 | 6 | Runs `npm install` |
-| 7 | Creates `.env`; applies `THEME_COLOR` to the PWA manifest if set |
+| 7 | Creates `.env` |
 | 8 | Allows Node.js through the macOS firewall |
 | 9 | Adds the compact TermTunnel prompt to `~/.zshrc` |
 | 10 | Installs and starts the launchd service (auto-start + crash restart) |
@@ -139,43 +139,36 @@ In Safari: **Share** → **Add to Home Screen** → name it (e.g. "MacBook Pro")
 
 ### Status bar
 
-A thin bar at the top contains:
+A floating pill in the top-right contains:
 
 - **Status dot** — green (connected), amber (reconnecting), red (disconnected)
-- **P0** — appears when your tmux session has multiple panes. Tap to cycle; current pane is highlighted.
 - **SCR** — tap to enter tmux scroll/copy mode (scroll back through history). Tap again to exit.
 - **⚙** — opens the settings panel
 
+The pill hides automatically when the keyboard is open.
+
 ### Keyboard
 
-Three pages, switched via the page buttons at the bottom right:
+Tap anywhere on the terminal to open or close the keyboard. Three pages, switched with the mode buttons in the bottom row:
 
 | Page | Contents |
 |---|---|
-| QWERTY | Letter keys. Long-press any key to see alternates (e.g. `i` → `[`, `{`). |
+| QWERTY | Letter keys + Shift, Ctrl, Delete, Return |
 | 123 | Numbers and common symbols |
 | Symbols | Less common symbols and punctuation |
 
 Special keys:
-- **Double-tap Space** — inserts a period
-- **Long-press Space** — sends Tab
-- **Ctrl** — sticky modifier. Tap Ctrl, then a letter (e.g. Ctrl + C).
+- **Ctrl** — sticky modifier. Tap Ctrl, then a letter (e.g. Ctrl + C sends `^C`).
+- **Shift** — sticky. Tap to capitalise the next letter key.
+- **⌫** — hold to repeat delete.
 
 ### Toolbar
 
-Above the keyboard:
-- **Esc** — sends Escape. Long-press for more control keys.
-- **fn** — macro page. Long-press for the full macro picker.
-- **← ↑ ↓ →** — arrow keys (can be hidden in settings)
-- **⌨** — toggles the keyboard
+Shown above the keyboard (and optionally without it):
 
-### Macro page
-
-Tap **fn** for one-tap access to common actions: tmux prefix, new window, scroll mode, detach, zoom; terminal ^C, ^D, clear, cd ..; git status/add/commit/diff/log; npm run dev.
-
-### Floating D-Pad
-
-Enable in settings. A draggable on-screen D-pad for arrow navigation without the keyboard. Drag to reposition.
+- **Esc** — sends Escape. Long-press for SIGQUIT (`^\`) or Alt+. (insert last argument).
+- **Tab** — sends a Tab character (useful for shell autocomplete).
+- **← ↑ ↓ →** — arrow keys.
 
 ---
 
@@ -210,9 +203,7 @@ Reconnect from your phone for it to take effect.
 
 Run `bash setup.sh` on each Mac. Each gets its own Tailscale IP.
 
-The connect screen discovers other Macs on your Tailscale network running TermTunnel — no need to type IPs. Tap a machine name to switch to it.
-
-Add each Mac as its own home screen app with a descriptive name ("MacBook Pro", "Mac Mini") to tell them apart.
+Add each Mac as its own home screen app with a descriptive name ("MacBook Pro", "Mac Mini") and connect by navigating to its Tailscale IP in Safari.
 
 ---
 
@@ -227,8 +218,6 @@ Tap **⚙** in the status bar.
 | Scrollback | 2000 lines | Terminal history buffer |
 | Cursor Style | Block | Block, underline, or bar |
 | Auto-Reconnect | On | Retry on disconnect (exponential backoff, up to 5 attempts) |
-| Toolbar Arrows | On | Show/hide arrow keys in the toolbar |
-| Floating D-Pad | Off | Draggable on-screen D-pad |
 
 The panel also shows the current server version and a **Check** button to see if a newer version is available — see [Updating](#updating).
 
@@ -274,11 +263,8 @@ tmux kill-session -t termtunnel
 `.env` is optional — the server runs fine without it. Only create one if you need to override the defaults.
 
 ```env
-PORT=3000             # default: 3000
-# THEME_COLOR=#0a0e14 # Optional: PWA manifest colour (background, theme, icon)
+PORT=3000   # default: 3000
 ```
-
-`THEME_COLOR` — if set, `setup.sh` writes it into `public/manifest.json` so the home screen bookmark uses that colour. Useful for telling multiple Macs apart.
 
 ---
 
@@ -339,25 +325,22 @@ You can also check for updates from your phone — tap **⚙** → **Check** nex
 git clone https://github.com/abarros6/TermTunnel.git
 cd TermTunnel
 npm install
-cp .env.example .env   # optional — only needed to override PORT or set THEME_COLOR
 node server.js         # start the server
 ```
 
 Open `http://localhost:3000` in a browser, or point your phone at your machine's local IP while on the same network.
 
-The frontend is a single file — `public/index.html`. No build step. Edit it and reload the browser. The server is `server.js` (ESM). Restart it to pick up changes.
+The frontend is a single HTML file (`public/index.html`) and `public/app.js`. No build step. Edit and reload the browser. The server is `server.js` (ESM). Restart it to pick up changes.
 
 ### Workflow
 
 1. Branch from `master`: `git checkout -b feature/my-thing`
 2. Push: `git push -u origin feature/my-thing`
 3. Open a PR against `master`
-4. Squash merge — GitHub is configured to squash only, keeping history clean
+4. Squash merge — keeping history clean
 5. Branch auto-deletes after merge
 
 **No direct pushes to `master`** — branch protection is on.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for conventions.
 
 ---
 

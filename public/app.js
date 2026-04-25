@@ -457,6 +457,7 @@
     backdrop.classList.remove('open');
     panel.classList.remove('open');
     applySettings();
+    term.focus();
   }
 
   // ── Version / update check ────────────────────────────────
