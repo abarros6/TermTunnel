@@ -53,6 +53,12 @@
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       touch-action: manipulation;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    #status-bar.pill-hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-6px);
     }
 
     #status-dot {
@@ -78,7 +84,7 @@
       50% { opacity: 0.3; }
     }
 
-    #pane-btn, #scroll-btn {
+    #scroll-btn {
       background: none;
       border: none;
       color: var(--dim);
@@ -90,8 +96,6 @@
       -webkit-tap-highlight-color: transparent;
       touch-action: manipulation;
     }
-    #pane-btn.active { color: var(--amber); }
-    #pane-btn:active { opacity: 0.7; }
     #scroll-btn.active { color: var(--amber); }
     #scroll-btn:active { opacity: 0.7; }
 
@@ -582,51 +586,6 @@
     }
     .kb-key:active { background: #2a3a52; }
 
-    /* Key press callout — pops up from the key like iOS */
-    #kb-callout {
-      position: fixed;
-      z-index: 200;
-      pointer-events: none;
-      background: #2d4060;
-      border: 1px solid rgba(255,255,255,0.18);
-      border-radius: 8px 8px 3px 3px;
-      color: var(--text);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 24px;
-      display: flex;
-      align-items: flex-start;
-      justify-content: center;
-      padding-top: 6px;
-      box-shadow: 0 -2px 12px rgba(0,0,0,0.4);
-      white-space: nowrap;
-      opacity: 0;
-      transform-origin: bottom center;
-      transform: scaleY(0.4);
-      transition: opacity 0.07s, transform 0.1s cubic-bezier(0.34, 1.4, 0.64, 1);
-    }
-    #kb-callout.visible {
-      opacity: 1;
-      transform: scaleY(1);
-    }
-    .kb-alt-item {
-      min-width: 36px;
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 6px;
-      font-size: 18px;
-      padding: 0 4px;
-      color: var(--text);
-      align-self: flex-start;
-      margin-top: 4px;
-      height: var(--key-h);
-    }
-    .kb-alt-item.highlighted {
-      background: var(--blue);
-      color: #000;
-    }
-
     .kb-key-wide   { flex: 0 0 14vw; }
     .kb-key-return {
       flex: 0 0 23vw;
@@ -770,64 +729,6 @@
     .tb-arrow-h > span { display: inline-block; transform: rotate(90deg); }
     .tb-arrow.hidden { display: none; }
 
-    #tb-backslash {
-      border-left: 1px solid var(--border);
-      font-size: 15px;
-      color: var(--text);
-    }
-    #tb-backslash.hidden { display: none; }
-
-    /* ── Leader Picker ── */
-    #leader-picker {
-      position: fixed;
-      left: 8px;
-      right: 8px;
-      bottom: calc(var(--toolbar-h) + var(--kb-actual-h) + 6px);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      z-index: 53;
-      overflow: hidden;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(8px);
-      transition: opacity 0.12s, transform 0.12s;
-    }
-    #leader-picker.open {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-    .lp-title {
-      padding: 7px 16px 6px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 10px;
-      color: var(--dim);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      border-bottom: 1px solid var(--border);
-    }
-    .lp-item {
-      padding: 10px 16px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--text);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      cursor: pointer;
-    }
-    .lp-item:last-child { border-bottom: none; }
-    .lp-item.active { color: var(--green); }
-    .lp-key {
-      color: var(--blue);
-      font-size: 11px;
-      min-width: 28px;
-    }
-
     /* ── Toolbar Long-Press Popup ── */
     #tb-popup {
       position: fixed;
@@ -860,140 +761,3 @@
     }
     .tp-item:last-child { border-bottom: none; }
     .tp-item.highlighted { background: rgba(0,255,159,0.1); color: var(--green); }
-
-    /* ── Macro Picker ── */
-    #macro-picker {
-      position: fixed;
-      left: 8px;
-      right: 8px;
-      bottom: calc(var(--toolbar-h) + var(--kb-actual-h) + 6px);
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      z-index: 52;
-      overflow: hidden;
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(8px);
-      transition: opacity 0.15s, transform 0.15s;
-    }
-    #macro-picker.open {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-    .mp-item {
-      padding: 13px 16px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      color: var(--text);
-      border-bottom: 1px solid var(--border);
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-    }
-    .mp-item:last-child { border-bottom: none; }
-    .mp-item.highlighted {
-      background: rgba(0, 255, 159, 0.1);
-      color: var(--green);
-    }
-
-
-    /* ── Floating D-Pad ── */
-    #float-dpad {
-      position: fixed;
-      bottom: calc(var(--toolbar-h) + 16px);
-      right: 10px;
-      width: 130px;
-      height: 130px;
-      z-index: 55;
-      background:
-        linear-gradient(to right,
-          transparent 63px, rgba(255,255,255,0.025) 63px,
-          rgba(255,255,255,0.025) 67px, transparent 67px),
-        linear-gradient(to bottom,
-          transparent 63px, rgba(255,255,255,0.025) 63px,
-          rgba(255,255,255,0.025) 67px, transparent 67px),
-        rgba(14, 22, 32, 0.96);
-      border: 1px solid var(--border);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      clip-path: path('M 43,8 A 8,8 0 0 1 51,0 L 79,0 A 8,8 0 0 1 87,8 L 87,35 A 8,8 0 0 0 95,43 L 122,43 A 8,8 0 0 1 130,51 L 130,79 A 8,8 0 0 1 122,87 L 95,87 A 8,8 0 0 0 87,95 L 87,122 A 8,8 0 0 1 79,130 L 51,130 A 8,8 0 0 1 43,122 L 43,95 A 8,8 0 0 0 35,87 L 8,87 A 8,8 0 0 1 0,79 L 0,51 A 8,8 0 0 1 8,43 L 35,43 A 8,8 0 0 0 43,35 Z');
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s, transform 0.15s, background 0.2s, border-color 0.2s;
-      transform: translateY(6px);
-    }
-    #float-dpad.open {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-    /* Collapsed: shrinks to a draggable dot at the center of the hit area */
-    #float-dpad.collapsed {
-      clip-path: circle(18px at 65px 65px);
-      background: rgba(58, 122, 255, 0.12);
-      border-color: rgba(58, 122, 255, 0.3);
-    }
-    #float-dpad.collapsed .fdp-arrow { opacity: 0; }
-    #float-dpad.collapsed.dragging {
-      filter: drop-shadow(0 0 8px rgba(58, 122, 255, 0.5));
-    }
-    .fdp-arrow {
-      position: absolute;
-      color: rgba(148, 163, 184, 0.65);
-      font-size: 22px;
-      line-height: 1;
-      pointer-events: none;
-      transition: color 0.08s, scale 0.08s, opacity 0.15s;
-    }
-    .fdp-left  { rotate: -90deg; }
-    .fdp-right { rotate:  90deg; }
-    .fdp-arrow.active { color: #3a7aff; }
-    @keyframes fdp-flash {
-      0%   { color: #fff; scale: 1.4; }
-      100% { color: #3a7aff; scale: 1; }
-    }
-    .fdp-arrow.flash { animation: fdp-flash 0.18s ease-out forwards; }
-    .fdp-up    { top: 0;    left: 43px; right: 43px; height: 43px; display: flex; align-items: center; justify-content: center; }
-    .fdp-down  { bottom: 0; left: 43px; right: 43px; height: 43px; display: flex; align-items: center; justify-content: center; }
-    .fdp-left  { left: 0;   top: 43px; bottom: 43px; width: 43px;  display: flex; align-items: center; justify-content: center; }
-    .fdp-right { right: 0;  top: 43px; bottom: 43px; width: 43px;  display: flex; align-items: center; justify-content: center; }
-    #float-dpad.dragging {
-      filter: drop-shadow(0 0 8px rgba(0,255,159,0.45));
-    }
-    #float-dpad.dragging .fdp-arrow,
-    #float-dpad.drag-ready .fdp-arrow {
-      color: #3a7aff;
-      transition: color 0.1s;
-    }
-
-    /* ── D-Pad Collapse Button ── */
-    #dpad-collapse-btn {
-      position: fixed;
-      z-index: 56;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: rgba(30, 40, 55, 0.92);
-      border: 1.5px solid rgba(58, 122, 255, 0.5);
-      box-shadow: 0 0 0 2px rgba(58, 122, 255, 0.15);
-      display: none;
-      cursor: pointer;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      padding: 0;
-    }
-    #dpad-collapse-btn.visible { display: block; }
-    #dpad-collapse-btn:active { background: rgba(58, 122, 255, 0.25); }
-
-    #tb-tab {
-      border-left: 1px solid var(--border);
-      font-size: 11px;
-      letter-spacing: 0.03em;
-    }
-    #tb-tab.hidden { display: none; }
-    #tb-enter { color: var(--green); }
-    #tb-enter.hidden { display: none; }

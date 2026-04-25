@@ -27,10 +27,8 @@
   <!-- Header -->
   <div id="status-bar">
     <div id="status-dot"></div>
-    <button id="pane-btn" class="d-none" title="Toggle pane navigation">P0</button>
     <button id="scroll-btn" class="d-none" title="Toggle scroll mode">SCR</button>
     <button id="settings-btn" title="Settings">⚙</button>
-
   </div>
   <div id="reconnect-toast"></div>
 
@@ -63,31 +61,31 @@
       <div class="kb-row">
         <button class="kb-key" data-char="q">q</button>
         <button class="kb-key" data-char="w">w</button>
-        <button class="kb-key" data-char="e" data-alts='["="]'>e</button>
+        <button class="kb-key" data-char="e">e</button>
         <button class="kb-key" data-char="r">r</button>
-        <button class="kb-key" data-char="t" data-alts='["|","&amp;"]'>t</button>
-        <button class="kb-key" data-char="y" data-alts='["^"]'>y</button>
+        <button class="kb-key" data-char="t">t</button>
+        <button class="kb-key" data-char="y">y</button>
         <button class="kb-key" data-char="u">u</button>
-        <button class="kb-key" data-char="i" data-alts='["[","{"]'>i</button>
-        <button class="kb-key" data-char="o" data-alts='["]","}"]'>o</button>
-        <button class="kb-key" data-char="p" data-alts='["\\","~"]'>p</button>
+        <button class="kb-key" data-char="i">i</button>
+        <button class="kb-key" data-char="o">o</button>
+        <button class="kb-key" data-char="p">p</button>
       </div>
       <div class="kb-row">
         <button class="kb-key" data-char="a">a</button>
-        <button class="kb-key" data-char="s" data-alts='["$"]'>s</button>
-        <button class="kb-key" data-char="d" data-alts='["~"]'>d</button>
+        <button class="kb-key" data-char="s">s</button>
+        <button class="kb-key" data-char="d">d</button>
         <button class="kb-key" data-char="f">f</button>
         <button class="kb-key" data-char="g">g</button>
-        <button class="kb-key" data-char="h" data-alts='["-","_"]'>h</button>
+        <button class="kb-key" data-char="h">h</button>
         <button class="kb-key" data-char="j">j</button>
         <button class="kb-key" data-char="k">k</button>
-        <button class="kb-key" data-char="l" data-alts='["/"]'>l</button>
+        <button class="kb-key" data-char="l">l</button>
       </div>
       <div class="kb-row">
         <button class="kb-key kb-mod kb-key-shift" id="kb-shift">⇧</button>
         <button class="kb-key" data-char="z">z</button>
         <button class="kb-key" data-char="x">x</button>
-        <button class="kb-key" data-char="c" data-alts='[">"]'>c</button>
+        <button class="kb-key" data-char="c">c</button>
         <button class="kb-key" data-char="v">v</button>
         <button class="kb-key" data-char="b">b</button>
         <button class="kb-key" data-char="n">n</button>
@@ -226,61 +224,9 @@
 <!-- Toolbar Long-Press Popup -->
 <div id="tb-popup"></div>
 
-<!-- Key press callout (popup above key on tap/hold) -->
-<div id="kb-callout"></div>
-
-<!-- Macro Picker (long-press fn) -->
-<div id="macro-picker">
-  <div class="mp-item" data-send="&#x02;" data-tmux-cmd="prefix">tmux prefix (Ctrl+B)</div>
-  <div class="mp-item" data-send="&#x02;c" data-tmux-cmd="newWindow">tmux new window</div>
-  <div class="mp-item" data-send="&#x02;n" data-tmux-cmd="nextWindow">tmux next window</div>
-  <div class="mp-item" data-send="&#x02;p" data-tmux-cmd="prevWindow">tmux prev window</div>
-  <div class="mp-item" data-send="&#x02;[" data-tmux-cmd="copyMode">tmux scroll mode</div>
-  <div class="mp-item" data-send="&#x02;d" data-tmux-cmd="detach">tmux detach</div>
-  <div class="mp-item" data-send="git status&#x0d;">git status</div>
-  <div class="mp-item" data-send="git add .&#x0d;">git add .</div>
-  <div class="mp-item" data-send="git commit -m &quot;&quot;&#x1b;[D">git commit -m ""</div>
-  <div class="mp-item" data-send="git diff&#x0d;">git diff</div>
-  <div class="mp-item" data-send="git log --oneline&#x0d;">git log --oneline</div>
-  <div class="mp-item" data-send="ls -la&#x0d;">ls -la</div>
-  <div class="mp-item" data-send="cd ..&#x0d;">cd ..</div>
-  <div class="mp-item" data-send="clear&#x0d;">clear</div>
-</div>
-
-<!-- Leader Key Picker (long-press on Ctrl) -->
-<div id="leader-picker">
-  <div class="lp-title">Leader Key — Ctrl double-tap sends</div>
-  <div class="lp-item" data-leader="&#x02;"><span class="lp-key">^B</span> tmux default</div>
-  <div class="lp-item" data-leader="&#x01;"><span class="lp-key">^A</span> screen / tmux alt</div>
-  <div class="lp-item" data-leader="&#x17;"><span class="lp-key">^W</span> vim windows</div>
-</div>
-
-<!-- Keyboard Toolbar -->
-<div id="kb-toolbar">
-  <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
-  <button class="tb-key" id="tb-macros">fn</button>
-  <button class="tb-key hidden" id="tb-backslash" data-send="&#x2f;">/</button>
-  <button class="tb-key hidden" id="tb-tab" data-send="&#x09;">Tab</button>
-  <button class="tb-key hidden" id="tb-enter" data-send="&#x0d;">↵</button>
-  <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[D"><span>↓</span></button>
-  <button class="tb-key tb-arrow" data-send="&#x1b;[A">↑</button>
-  <button class="tb-key tb-arrow" data-send="&#x1b;[B">↓</button>
-  <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[C"><span>↑</span></button>
-</div>
-
-<!-- Floating D-Pad -->
-<div id="float-dpad">
-  <span class="fdp-arrow fdp-up">↑</span>
-  <span class="fdp-arrow fdp-left">↑</span>
-  <span class="fdp-arrow fdp-right">↑</span>
-  <span class="fdp-arrow fdp-down">↓</span>
-</div>
-<button id="dpad-collapse-btn" aria-label="Collapse d-pad"></button>
-
 <!-- Scroll Pill -->
 <div id="scroll-pill"></div>
 <div id="scroll-bottom-btn">↓</div>
-
 
 <!-- Settings Backdrop + Panel -->
 <div id="settings-backdrop"></div>
@@ -321,31 +267,9 @@
     </label>
   </div>
   <div class="setting-row">
-    <div class="setting-label">Leader Key<small>Ctrl double-tap</small></div>
-    <div class="seg-ctrl" id="set-leader">
-      <button class="seg-btn" data-value="&#x02;">^B</button>
-      <button class="seg-btn" data-value="&#x01;">^A</button>
-      <button class="seg-btn" data-value="&#x17;">^W</button>
-    </div>
-  </div>
-  <div class="setting-row">
     <div class="setting-label">Toolbar Arrows<small>arrow keys in toolbar</small></div>
     <label class="toggle">
       <input type="checkbox" id="set-tb-arrows" checked>
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
-  <div class="setting-row">
-    <div class="setting-label">Floating D-Pad<small>on-screen directional pad</small></div>
-    <label class="toggle">
-      <input type="checkbox" id="set-dpad">
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
-  <div class="setting-row">
-    <div class="setting-label">Long-press Key Alts<small>hold key for alternate chars</small></div>
-    <label class="toggle">
-      <input type="checkbox" id="set-longpress" checked>
       <span class="toggle-slider"></span>
     </label>
   </div>
@@ -354,6 +278,16 @@
     <button class="sa-btn" id="check-update-btn">Check</button>
   </div>
   <div id="update-status"></div>
+</div>
+
+<!-- Keyboard Toolbar -->
+<div id="kb-toolbar">
+  <button class="tb-key tb-esc" id="tb-esc" data-send="&#x1b;" data-lp>Esc</button>
+  <button class="tb-key" id="tb-macros">fn</button>
+  <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[D"><span>↓</span></button>
+  <button class="tb-key tb-arrow" data-send="&#x1b;[A">↑</button>
+  <button class="tb-key tb-arrow" data-send="&#x1b;[B">↓</button>
+  <button class="tb-key tb-arrow tb-arrow-h" data-send="&#x1b;[C"><span>↑</span></button>
 </div>
 
 <script type="module" src="/app.js"></script>

@@ -147,20 +147,6 @@ app.get('/api/peers', async (_req, res) => {
   }
 });
 
-app.get('/api/panes', (req, res) => {
-  const session = req.query.session || 'termtunnel';
-  if (!TMUX) return res.json({ active: 0, total: 1 });
-  try {
-    const out = execSync(`${TMUX} list-panes -t "${session}" -F "#{pane_index}:#{pane_active}" 2>/dev/null`).toString().trim();
-    const panes = out ? out.split('\n').filter(Boolean) : [];
-    const total = panes.length;
-    const activePane = panes.find(p => p.endsWith(':1'));
-    const active = activePane ? parseInt(activePane.split(':')[0]) : 0;
-    res.json({ active, total });
-  } catch {
-    res.json({ active: 0, total: 1 });
-  }
-});
 
 app.get('/api/sessions', (_req, res) => {
   if (!TMUX) return res.json({ sessions: [] });
@@ -271,18 +257,6 @@ wss.on('connection', (ws, req) => {
     } else if (msg.type === 'resize') {
       ptyProcess.resize(msg.cols, msg.rows);
       ensureZoomed();
-    } else if (msg.type === 'pane-select') {
-      if (TMUX) {
-        try {
-          const phoneSession = `tt_ph_${sessionName}`;
-          const dirFlag = { up: '-U', down: '-D', left: '-L', right: '-R' }[msg.dir];
-          if (dirFlag) {
-            execSync(`${TMUX} resize-pane -t "${phoneSession}" -Z 2>/dev/null`); // unzoom
-            execSync(`${TMUX} select-pane -t "${phoneSession}" ${dirFlag} 2>/dev/null`);
-            execSync(`${TMUX} resize-pane -t "${phoneSession}" -Z 2>/dev/null`); // re-zoom
-          }
-        } catch {}
-      }
     }
   });
 
