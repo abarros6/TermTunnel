@@ -737,13 +737,13 @@
   }, { passive: false });
 
   // Toolbar key dispatch
-  kbToolbar.addEventListener('pointerdown', (e) => {
+  kbToolbar.addEventListener('touchstart', (e) => {
     const key = e.target.closest('[data-send]');
     if (!key) return;
     if (key.hasAttribute('data-lp')) return;
     e.stopPropagation();
     sendData(key.dataset.send);
-  });
+  }, { passive: true });
 
   // ── Toolbar long-press system ─────────────────────────────
   const tbPopup   = document.getElementById('tb-popup');
