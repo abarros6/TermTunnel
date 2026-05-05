@@ -358,6 +358,105 @@
       text-align: center;
     }
 
+    /* ── Session list (connect overlay) ── */
+    .session-list {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      max-height: 192px;
+      overflow-y: auto;
+    }
+    .session-item {
+      display: flex;
+      align-items: center;
+      padding: 9px 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+      transition: background 0.1s;
+    }
+    .session-item:last-child { border-bottom: none; }
+    .session-item:active { background: rgba(255,255,255,0.04); }
+    .session-item.selected { background: rgba(0,255,159,0.06); }
+    .session-name {
+      flex: 1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: var(--text);
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .session-item.selected .session-name { color: var(--green); }
+    .session-item.session-new-item .session-name { color: var(--dim); }
+    .session-kill-btn {
+      background: none;
+      border: none;
+      color: var(--dim);
+      font-size: 16px;
+      line-height: 1;
+      padding: 0 3px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+      transition: color 0.1s;
+    }
+    .session-kill-btn:active { color: var(--red); }
+
+    /* ── Settings sessions section ── */
+    .setting-section {
+      margin-bottom: 4px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .setting-section-label {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--dim);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .settings-session-item {
+      display: flex;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+      gap: 8px;
+    }
+    .settings-session-item:last-child { border-bottom: none; }
+    .settings-session-name {
+      flex: 1;
+      font-size: 12px;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .settings-session-kill {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--dim);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+      padding: 4px 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      flex-shrink: 0;
+      transition: border-color 0.1s, color 0.1s;
+    }
+    .settings-session-kill:active { border-color: var(--red); color: var(--red); }
+    .settings-session-empty {
+      font-size: 11px;
+      color: var(--dim);
+      padding: 6px 0;
+    }
+
     .field select {
       width: 100%;
       background: var(--bg);

@@ -159,6 +159,17 @@ app.get('/api/sessions', (_req, res) => {
   }
 });
 
+app.delete('/api/sessions/:name', (req, res) => {
+  if (!TMUX) return res.status(503).json({ error: 'tmux not available' });
+  const name = req.params.name;
+  try {
+    execFileSync(TMUX, ['kill-session', '-t', name]);
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Failed to kill session' });
+  }
+});
+
 const server = createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws' });
 

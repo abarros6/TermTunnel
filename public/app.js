@@ -6,6 +6,7 @@
   let reconnectAttempts = 0;
   let reconnectTimer = null;
   let wasConnected = false;   // tracks if we've ever reached 'connected' state
+  let selectedSession = null; // currently selected session in the connect overlay
   const MAX_RECONNECT = 5;
   const RECONNECT_CAP = 15000;
 
@@ -278,6 +279,7 @@
         if (msg.data === 'connected') {
           wasConnected = true;
           if (msg.keybinds) applyKeybinds(msg.keybinds);
+          setError('');
           hideOverlay();
           hideReconnectToast();
           setStatus('connected');
@@ -300,7 +302,6 @@
 
     ws.onerror = () => {
       setStatus('error');
-      if (!loadSettings().autoReconnect) setError('Connection failed');
     };
 
     ws.onclose = () => {
@@ -311,6 +312,7 @@
 
   // ── Auto-reconnect ────────────────────────────────────────
   function scheduleReconnect() {
+    if (!document.getElementById('connect-overlay').classList.contains('hidden')) return;
     const s = loadSettings();
     if (!s.autoReconnect) return;
     if (reconnectAttempts >= MAX_RECONNECT) {
@@ -344,6 +346,9 @@
 
   // ── Overlay helpers ───────────────────────────────────────
   function showOverlay() {
+    clearTimeout(reconnectTimer);
+    reconnectAttempts = 0;
+    setError('');
     document.getElementById('connect-overlay').classList.remove('hidden');
   }
   function hideOverlay() {
@@ -354,43 +359,100 @@
   }
 
   // ── Session picker ────────────────────────────────────────
-  const selSession = document.getElementById('inp-session');
   const inpSessionNew = document.getElementById('inp-session-new');
 
-  selSession.addEventListener('change', () => {
-    if (selSession.value === '__new__') {
-      inpSessionNew.classList.remove('d-none');
-      inpSessionNew.focus();
-    } else {
-      inpSessionNew.classList.add('d-none');
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function selectSession(value) {
+    selectedSession = value;
+    setError('');
+    document.getElementById('session-list').querySelectorAll('.session-item').forEach(el => {
+      el.classList.toggle('selected', el.dataset.session === value);
+    });
+  }
+
+  async function killSession(name) {
+    try {
+      const r = await fetch(`/api/sessions/${encodeURIComponent(name)}`, { method: 'DELETE' });
+      return r.ok;
+    } catch {
+      return false;
     }
-  });
+  }
 
   async function loadSessions() {
     const subtitle = document.getElementById('connect-subtitle');
     const connectBtn = document.getElementById('connect-btn');
+    const list = document.getElementById('session-list');
     try {
       const r = await fetch('/api/sessions');
       if (!r.ok) throw new Error();
       const { sessions } = await r.json();
       const saved = loadConn();
-      let opts = '';
-      // If last-used session is not in the active list, show it as a special option
-      if (saved.session && !(sessions || []).includes(saved.session)) {
-        opts += `<option value="__last__">↩ last used: ${saved.session}</option>`;
+      const active = sessions || [];
+
+      const items = [];
+      if (saved.session && !active.includes(saved.session)) {
+        items.push({ value: '__last__', label: `↩ last: ${saved.session}`, killable: false });
       }
-      opts += (sessions || []).map(s => `<option value="${s}">${s}</option>`).join('');
-      opts += '<option value="__new__">＋  New session…</option>';
-      selSession.innerHTML = opts;
-      // Pre-select last-used if it's in the active list
-      if (saved.session && (sessions || []).includes(saved.session)) {
-        selSession.value = saved.session;
+      for (const s of active) {
+        items.push({ value: s, label: s, killable: true });
       }
-      inpSessionNew.classList.add('d-none');
+      items.push({ value: '__new__', label: '＋  New session…', killable: false, isNew: true });
+
+      list.innerHTML = items.map(item =>
+        `<div class="session-item${item.isNew ? ' session-new-item' : ''}" data-session="${escHtml(item.value)}">` +
+        `<span class="session-name">${escHtml(item.label)}</span>` +
+        (item.killable ? `<button class="session-kill-btn" data-kill="${escHtml(item.value)}">×</button>` : '') +
+        `</div>`
+      ).join('');
+
+      // Determine default selection
+      let defaultVal;
+      if (saved.session && active.includes(saved.session)) defaultVal = saved.session;
+      else if (active.length > 0) defaultVal = active[0];
+      else if (saved.session) defaultVal = '__last__';
+      else defaultVal = '__new__';
+
+      selectSession(defaultVal);
+      if (defaultVal === '__new__') {
+        inpSessionNew.classList.remove('d-none');
+      } else {
+        inpSessionNew.classList.add('d-none');
+      }
+
+      list.querySelectorAll('.session-item').forEach(el => {
+        el.addEventListener('click', () => {
+          const val = el.dataset.session;
+          selectSession(val);
+          if (val === '__new__') {
+            inpSessionNew.classList.remove('d-none');
+            inpSessionNew.focus();
+          } else {
+            inpSessionNew.classList.add('d-none');
+          }
+        });
+      });
+
+      list.querySelectorAll('.session-kill-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const name = btn.dataset.kill;
+          btn.disabled = true;
+          btn.textContent = '…';
+          const ok = await killSession(name);
+          if (ok) await loadSessions();
+          else { btn.disabled = false; btn.textContent = '×'; }
+        });
+      });
+
       subtitle.textContent = 'Choose a session';
       connectBtn.disabled = false;
     } catch {
       subtitle.textContent = 'Server offline';
+      connectBtn.disabled = true;
     }
   }
 
@@ -406,12 +468,14 @@
 
   // ── Connect form ──────────────────────────────────────────
   document.getElementById('connect-btn').addEventListener('click', () => {
-    const raw = selSession.value;
-    const session = raw === '__new__'
-      ? (inpSessionNew.value.trim() || 'termtunnel')
-      : raw === '__last__'
-      ? loadConn().session
-      : (raw || 'termtunnel');
+    let session;
+    if (selectedSession === '__new__') {
+      session = inpSessionNew.value.trim() || 'termtunnel';
+    } else if (selectedSession === '__last__') {
+      session = loadConn().session || 'termtunnel';
+    } else {
+      session = selectedSession || 'termtunnel';
+    }
     saveConn({ session });
     connect(ORIGIN_HOST, ORIGIN_PORT, session);
   });
@@ -601,6 +665,7 @@
       const open = !kbState.keyboardOpen;
       kbState.keyboardOpen = open;
       kbState.toolbarOpen  = open;
+      if (open && scrollMode) setScrollMode(false);
       applyKbState();
     }, { passive: true, capture: true });
   }
